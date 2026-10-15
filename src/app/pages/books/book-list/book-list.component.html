@@ -1,0 +1,1149 @@
+<!-- ========================================================= -->
+<!-- 📚 BOOK LIST / STORE PAGE -->
+<!-- ========================================================= -->
+
+<div class="booklist-page">
+
+  <ng-container *ngFor="let banner of banners">
+    <div class="floating-banner" *ngIf="!isBannerClosed(banner._id)">
+      <button type="button" class="banner-close" (click)="closeBanner(banner._id)" aria-label="Close banner">X</button>
+      <div class="banner-image" *ngIf="banner.imageUrl">
+        <img [src]="banner.imageUrl" alt="">
+      </div>
+      <div class="banner-details">
+        <strong>{{ banner.title }}</strong>
+        <p *ngIf="banner.message">{{ banner.message }}</p>
+        <a *ngIf="banner.link" [href]="banner.link" target="_blank" rel="noopener">View offer</a>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ======================================================= -->
+  <!-- 💎 PREMIUM SUBSCRIPTION -->
+  <!-- ======================================================= -->
+
+  <section class="subscription-card">
+
+    <div class="subscription-left">
+
+      <span class="premium-badge">
+        ✨ PREMIUM ACCESS
+      </span>
+
+      <h2>
+        {{ subscriptionSetting.planName }}
+      </h2>
+
+      <p>
+        Read unlimited books and access premium learning resources.
+      </p>
+
+
+      <div class="subscription-features">
+
+        <span>
+          ✓ Unlimited Books
+        </span>
+
+        <span>
+          ✓ Premium Content
+        </span>
+
+        <span>
+          ✓ Learn Anytime
+        </span>
+
+      </div>
+
+    </div>
+
+
+    <div class="subscription-right">
+
+      <div class="subscription-price">
+
+        <small>
+          Starting at
+        </small>
+
+        <h1>
+
+          ₹{{ subscriptionSetting.price }}
+
+          <span>
+            / {{ subscriptionSetting.duration }} Days
+          </span>
+
+        </h1>
+
+      </div>
+
+
+      <button class="subscribe-btn" (click)="subscribeNow()" [disabled]="!subscriptionSetting.active">
+
+        {{
+        subscriptionSetting.active
+        ? 'Subscribe Now →'
+        : 'Subscription Closed'
+        }}
+
+      </button>
+
+    </div>
+
+  </section>
+
+
+
+
+
+  <!-- ======================================================= -->
+  <!-- 🔥 CATEGORY SECTION -->
+  <!-- ======================================================= -->
+
+  <section class="category-section">
+
+    <div class="section-heading">
+
+      <div>
+
+        <h2>
+          Shop by Category
+        </h2>
+
+        <p>
+          Find the right guide for your fitness and nutrition journey.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <!-- CATEGORY LIST -->
+
+    <div class="category-list">
+
+      <!-- ALL BOOKS -->
+
+      <div class="category-card all-category" (click)="showAllBooks()">
+
+        <div class="category-icon">
+          📚
+        </div>
+
+        <div class="category-content">
+
+          <h3>
+            All Books
+          </h3>
+
+          <p>
+            View all guides
+          </p>
+
+        </div>
+
+        <span class="category-arrow">
+          →
+        </span>
+
+      </div>
+
+
+      <!-- DYNAMIC CATEGORIES -->
+
+      <div class="category-card" *ngFor="let category of dynamicCategories" (click)="filterCategory(category)">
+
+        <div class="category-icon">
+          📖
+        </div>
+
+        <div class="category-content">
+
+          <h3>
+            {{ category }}
+          </h3>
+
+          <p>
+            View collection
+          </p>
+
+        </div>
+
+        <span class="category-arrow">
+          →
+        </span>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ======================================================= -->
+  <!-- 📚 FOLDER LIBRARY -->
+  <!-- ======================================================= -->
+
+  <section class="library-section">
+
+    <!-- HEADER -->
+
+    <div class="library-section-header">
+
+      <div>
+
+        <span class="section-eyebrow">
+          LIBRARY
+        </span>
+
+        <h2>
+          📚 Learning Library
+        </h2>
+
+        <p>
+          Access organized books, notes, PDFs and learning resources.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- BREADCRUMB -->
+    <!-- ===================================================== -->
+
+    <div class="library-breadcrumb" *ngIf="libraryPath.length > 0">
+
+      <button (click)="goToLibraryRoot()">
+        🏠 Library
+      </button>
+
+
+      <ng-container *ngFor="let path of libraryPath; let last = last">
+
+        <span class="breadcrumb-separator">
+          /
+        </span>
+
+
+        <button *ngIf="last" class="breadcrumb-current">
+          {{ path.name }}
+        </button>
+
+
+        <span *ngIf="!last" class="breadcrumb-text">
+          {{ path.name }}
+        </span>
+
+      </ng-container>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- BACK BUTTON -->
+    <!-- ===================================================== -->
+
+    <button *ngIf="libraryPath.length > 0" class="library-back-btn" (click)="backLibraryFolder()">
+
+      ← Back to Library
+
+    </button>
+
+
+
+    <!-- ===================================================== -->
+    <!-- LOADING -->
+    <!-- ===================================================== -->
+
+    <div class="library-loading" *ngIf="libraryLoading">
+
+      <div class="loading-spinner"></div>
+
+      <span>
+        Loading library...
+      </span>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- ROOT / FOLDERS -->
+    <!-- ===================================================== -->
+
+    <!-- ===================================================== -->
+    <!-- 📁 LIBRARY FOLDER GRID -->
+    <!-- ===================================================== -->
+
+    <div class="library-folder-grid" *ngIf="
+    !libraryLoading &&
+    !currentLibraryFolder &&
+    libraryFolders.length > 0
+  ">
+
+      <div class="library-folder-card" *ngFor="let folder of libraryFolders" (click)="openLibraryFolder(folder)">
+
+        <!-- TOP -->
+        <div class="folder-card-top">
+
+          <div class="library-folder-icon">
+            📁
+          </div>
+
+        </div>
+
+        <!-- CONTENT -->
+        <div class="library-folder-info">
+
+          <h3>
+            {{ folder.name }}
+          </h3>
+
+          <p *ngIf="folder.description">
+            {{ folder.description }}
+          </p>
+
+          <p *ngIf="!folder.description">
+            Explore learning resources
+          </p>
+
+        </div>
+
+        <!-- 💰 PRICE -->
+        <div class="folder-price-section">
+
+          <!-- OFFER PRICE AVAILABLE -->
+          <ng-container *ngIf="
+        folder.offerPrice > 0 &&
+        folder.offerPrice < folder.sellingPrice;
+        else normalPrice
+      ">
+
+            <div class="folder-price-row">
+
+              <strong class="folder-offer-price">
+                ₹{{ folder.offerPrice }}
+              </strong>
+
+              <del class="folder-selling-price">
+                ₹{{ folder.sellingPrice }}
+              </del>
+
+            </div>
+
+          </ng-container>
+
+
+          <!-- NORMAL PRICE -->
+          <ng-template #normalPrice>
+
+            <strong class="folder-normal-price">
+              ₹{{ folder.sellingPrice }}
+            </strong>
+
+          </ng-template>
+
+
+          <span class="folder-access-duration">
+            🔐 30 Days Access
+          </span>
+
+        </div>
+
+        <!-- FOOTER -->
+        <div class="folder-card-footer">
+
+          <span class="folder-resource-label">
+            Learning Resources
+          </span>
+
+          <span class="folder-open">
+            Open →
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ===================================================== -->
+    <!-- EMPTY LIBRARY -->
+    <!-- ===================================================== -->
+
+    <div class="library-empty" *ngIf="
+      !libraryLoading &&
+      !currentLibraryFolder &&
+      libraryFolders.length === 0
+    ">
+
+      <div class="library-empty-icon">
+        📚
+      </div>
+
+      <h3>
+        Library Coming Soon
+      </h3>
+
+      <p>
+        New learning resources will appear here.
+      </p>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- 📂 CURRENT FOLDER -->
+    <!-- ===================================================== -->
+
+    <div class="library-content-section" *ngIf="currentLibraryFolder">
+
+
+      <!-- CURRENT FOLDER HEADER -->
+
+      <div class="library-content-header">
+
+        <div>
+
+          <span class="section-eyebrow">
+            FOLDER
+          </span>
+
+          <h2>
+            📁 {{ currentLibraryFolder.name }}
+          </h2>
+
+          <p>
+            Books and learning resources inside this folder.
+          </p>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- CONTENT LOADING -->
+
+      <div class="library-loading" *ngIf="contentLoading">
+
+        <div class="loading-spinner"></div>
+
+        <span>
+          Loading content...
+        </span>
+
+      </div>
+
+
+
+      <!-- =================================================== -->
+      <!-- CONTENT GRID -->
+      <!-- =================================================== -->
+
+      <div class="library-content-grid" *ngIf="
+        !contentLoading &&
+        libraryContents.length > 0
+      ">
+
+
+        <!-- CONTENT CARD -->
+
+        <div class="library-content-card" *ngFor="let content of libraryContents" (click)="openLibraryContent(content)">
+
+
+          <!-- ICON -->
+
+          <div class="content-icon" [ngClass]="{
+            'pdf-icon': content.type === 'pdf',
+            'video-icon': content.type === 'video',
+            'note-icon': content.type === 'note'
+          }">
+
+            <span *ngIf="content.type === 'pdf'">
+              📄
+            </span>
+
+
+            <span *ngIf="content.type === 'video'">
+              🎥
+            </span>
+
+
+            <span *ngIf="content.type === 'note'">
+              📝
+            </span>
+
+          </div>
+
+
+
+          <!-- INFO -->
+
+          <div class="content-info">
+
+            <span class="content-type">
+
+              {{ content.type | uppercase }}
+
+              <span *ngIf="content.type === 'note'" class="premium-content-badge">PREMIUM</span>
+
+            </span>
+
+
+            <h3>
+              {{ content.title }}
+            </h3>
+
+
+            <p *ngIf="content.type === 'pdf'">
+              PDF Learning Material
+            </p>
+
+
+            <p *ngIf="content.type === 'video'">
+              Video Learning Material
+            </p>
+
+
+            <p *ngIf="content.type === 'note'">
+              Written Notes
+            </p>
+
+
+            <small *ngIf="content.fileSize">
+
+              {{
+              (content.fileSize / 1024 / 1024)
+              | number:'1.1-2'
+              }}
+
+              MB
+
+            </small>
+
+          </div>
+
+
+
+          <!-- ACTION -->
+
+          <div class="content-action">
+
+            <span *ngIf="content.type === 'pdf'">
+              Read →
+            </span>
+
+
+            <span *ngIf="content.type === 'video'">
+              Watch →
+            </span>
+
+
+            <span *ngIf="content.type === 'note'">
+              Read →
+            </span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- =================================================== -->
+      <!-- EMPTY CURRENT FOLDER -->
+      <!-- =================================================== -->
+
+      <div class="library-empty content-empty" *ngIf="
+        !contentLoading &&
+        libraryContents.length === 0
+      ">
+
+        <div class="library-empty-icon">
+          📂
+        </div>
+
+        <h3>
+          No Resources Yet
+        </h3>
+
+        <p>
+          PDFs, videos and notes will appear here.
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- ======================================================= -->
+  <!-- 📚 BOOK STORE -->
+  <!-- ======================================================= -->
+
+  <section class="book-list">
+
+    <!-- BOOK SECTION HEADER -->
+
+    <div class="book-section-header">
+
+      <div>
+
+        <h2 class="title">
+          Latest Books
+        </h2>
+
+        <p>
+          Discover practical fitness, nutrition and transformation guides.
+        </p>
+
+      </div>
+
+
+      <div class="book-count">
+
+        {{ totalBooks || books.length }}
+
+        <span>
+          Books
+        </span>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- 📚 BOOK GRID -->
+    <!-- ===================================================== -->
+
+    <div class="book-grid">
+
+
+      <!-- BOOK CARD -->
+
+      <div class="book-card" *ngFor="let book of filteredBooks" (click)="openBook(book._id || book.id)">
+
+
+        <!-- IMAGE -->
+
+        <div class="image">
+
+          <img [src]="
+              book.image ||
+              book.coverImage ||
+              'assets/images/book-placeholder.png'
+            " [alt]="book.title">
+
+
+          <!-- PREMIUM BADGE -->
+
+          <span class="book-premium" *ngIf="book.isPremium">
+            PREMIUM
+          </span>
+
+        </div>
+
+
+
+        <!-- BOOK INFORMATION -->
+
+        <div class="info">
+
+          <!-- TITLE -->
+
+          <h3>
+            {{ book.title }}
+          </h3>
+
+
+          <!-- AUTHOR -->
+
+          <p class="author">
+            {{ book.author }}
+          </p>
+
+
+          <!-- RATING -->
+
+          <div class="rating">
+
+            <span>
+              ⭐⭐⭐⭐⭐
+            </span>
+
+            <small>
+              {{ book.reviews || 0 }} Reviews
+            </small>
+
+          </div>
+
+
+          <!-- PRICE -->
+
+          <div class="price-row">
+
+            <p class="price">
+              ₹{{ book.price }}
+            </p>
+
+            <span class="original-price" *ngIf="book.originalPrice">
+              ₹{{ book.originalPrice }}
+            </span>
+
+          </div>
+
+
+          <!-- VIEW BOOK -->
+
+          <button class="view-book-btn" (click)="
+              openBook(book._id || book.id);
+              $event.stopPropagation()
+            ">
+            View Guide →
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- EMPTY BOOKS -->
+    <!-- ===================================================== -->
+
+    <div class="book-empty" *ngIf="
+        filteredBooks &&
+        filteredBooks.length === 0
+      ">
+
+      <div class="book-empty-icon">
+        📚
+      </div>
+
+      <h3>
+        No Books Found
+      </h3>
+
+      <p>
+        Try another category or check again later.
+      </p>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- PREMIUM PAGINATION -->
+    <!-- ===================================================== -->
+
+    <div class="pagination" *ngIf="totalPages > 1">
+
+      <!-- PREVIOUS -->
+
+      <button class="nav-btn" (click)="previousPage()" [disabled]="currentPage === 1">
+        ← Previous
+      </button>
+
+
+      <!-- FIRST PAGE -->
+
+      <button *ngIf="currentPage > 3" (click)="goToPage(1)">
+        1
+      </button>
+
+
+      <span *ngIf="currentPage > 4">
+        ...
+      </span>
+
+
+      <!-- PAGE NUMBERS -->
+
+      <button *ngFor="let page of pages" (click)="goToPage(page)" [class.active]="page === currentPage">
+        {{ page }}
+      </button>
+
+
+      <span *ngIf="currentPage < totalPages - 3">
+        ...
+      </span>
+
+
+      <!-- LAST PAGE -->
+
+      <button *ngIf="currentPage < totalPages - 2" (click)="goToPage(totalPages)">
+        {{ totalPages }}
+      </button>
+
+
+      <!-- NEXT -->
+
+      <button class="nav-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">
+        Next →
+      </button>
+
+    </div>
+
+
+
+    <!-- ===================================================== -->
+    <!-- PAGE INFO -->
+    <!-- ===================================================== -->
+
+    <div class="page-info" *ngIf="books.length > 0">
+
+      Showing
+
+      <b>
+        {{ (currentPage - 1) * limit + 1 }}
+      </b>
+
+      -
+
+      <b>
+        {{
+        ((currentPage - 1) * limit + books.length)
+        }}
+      </b>
+
+      of
+
+      <b>
+        {{ totalBooks }}
+      </b>
+
+      Books
+
+    </div>
+
+  </section>
+
+
+
+  <!-- ======================================================= -->
+  <!-- ⭐ TESTIMONIAL -->
+  <!-- ======================================================= -->
+
+  <section class="testimonial-section">
+
+    <div class="testimonial-heading">
+
+      <span class="section-eyebrow">
+        COMMUNITY
+      </span>
+
+      <h2 class="testimonial-title">
+        ⭐ What Our Clients Say
+      </h2>
+
+      <p>
+        Real feedback from our readers and clients.
+      </p>
+
+    </div>
+
+
+
+    <!-- TESTIMONIAL FORM -->
+
+    <div class="testimonial-form">
+
+      <input type="text" [(ngModel)]="testimonialName" placeholder="Your Name">
+
+
+      <textarea [(ngModel)]="testimonialMessage" placeholder="Write your feedback"></textarea>
+
+      <label class="testimonial-photo-field">
+        <span>Passport-size photo (optional)</span>
+        <input type="file" accept="image/jpeg,image/png,image/webp" (change)="onTestimonialImageSelected($event)">
+      </label>
+
+      <img *ngIf="testimonialImagePreview" class="testimonial-image-preview" [src]="testimonialImagePreview" alt="Selected testimonial photo">
+
+
+      <select [(ngModel)]="testimonialRating">
+
+        <option value="5">
+          ⭐⭐⭐⭐⭐
+        </option>
+
+        <option value="4">
+          ⭐⭐⭐⭐
+        </option>
+
+        <option value="3">
+          ⭐⭐⭐
+        </option>
+
+        <option value="2">
+          ⭐⭐
+        </option>
+
+        <option value="1">
+          ⭐
+        </option>
+
+      </select>
+
+
+      <button (click)="submitTestimonial()">
+        Submit Feedback
+      </button>
+
+    </div>
+
+
+
+    <!-- TESTIMONIAL LIST -->
+
+    <div class="testimonial-wrapper" id="testimonial-section">
+
+      <div class="testimonial-card" *ngFor="let t of testimonials">
+
+        <div class="testimonial-top">
+
+          <img *ngIf="t.imageUrl" class="testimonial-photo" [src]="t.imageUrl" alt="{{ t.name }}">
+
+          <div>
+
+            <h3>
+              {{ t.name }}
+            </h3>
+
+          </div>
+
+
+          <div class="stars">
+
+            <span *ngFor="let star of [1,2,3,4,5]">
+              {{ star <= t.rating ? '⭐' : '☆' }} </span>
+
+          </div>
+
+        </div>
+
+
+        <p class="testimonial-message">
+          "{{ t.message }}"
+        </p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- ======================================================= -->
+  <!-- 💬 FEEDBACK FLOATING BUTTON -->
+  <!-- ======================================================= -->
+
+  <div class="feedback-wrapper" (click)="scrollToTestimonial()">
+
+    <div class="feedback-robot">
+      💬
+    </div>
+
+    <p class="feedback-text">
+      Give Feedback
+    </p>
+
+  </div>
+
+
+
+  <!-- ======================================================= -->
+  <!-- 🤖 FITNESS AI BOT -->
+  <!-- ======================================================= -->
+
+  <!-- <div class="fitness-bot-icon" (click)="toggleBot()">
+    🤖
+  </div> -->
+
+
+
+  <!-- OVERLAY -->
+
+  <div class="chat-overlay" *ngIf="isBotOpen" (click)="isBotOpen = false">
+  </div>
+
+
+
+  <!-- CHAT -->
+
+  <div class="fitness-chat" *ngIf="isBotOpen">
+
+    <!-- HEADER -->
+
+    <div class="chat-header">
+
+      <span>
+        🤖 Fitness Assistant
+      </span>
+
+      <span class="close-btn" (click)="isBotOpen = false">
+        ×
+      </span>
+
+    </div>
+
+
+
+    <!-- BODY -->
+
+    <div class="chat-body">
+
+      <div *ngFor="let msg of messages" [ngClass]="
+          msg.type === 'bot'
+            ? 'bot-msg'
+            : 'user-msg'
+        ">
+
+        {{ msg.text }}
+
+      </div>
+
+    </div>
+
+
+
+    <!-- INPUT -->
+
+    <div class="chat-input">
+
+      <!-- NORMAL INPUT -->
+
+      <input *ngIf="step !== 5" [(ngModel)]="userInput" placeholder="Type here...">
+
+
+      <!-- GOAL -->
+
+      <select *ngIf="step === 5" [(ngModel)]="goal">
+
+        <option value="fatloss">
+          Fat Loss
+        </option>
+
+        <option value="musclegain">
+          Muscle Gain
+        </option>
+
+        <option value="fitness">
+          Normal Fitness
+        </option>
+
+      </select>
+
+
+      <!-- SEND -->
+
+      <button (click)="nextStep()">
+        Send
+      </button>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ======================================================= -->
+  <!-- 📱 BOTTOM NAVIGATION -->
+  <!-- ======================================================= -->
+
+  <div class="bottom-navbar">
+
+    <!-- HOME -->
+
+    <div class="nav-item" routerLink="/" routerLinkActive="active">
+
+      <span>
+        🏠
+      </span>
+
+      <p>
+        Home
+      </p>
+
+    </div>
+
+
+
+    <!-- EXPLORE -->
+
+    <div class="nav-item" routerLink="/explore" routerLinkActive="active">
+
+      <span>
+        🔍
+      </span>
+
+      <p>
+        Explore
+      </p>
+
+    </div>
+
+
+
+    <!-- MY BOOKS -->
+
+    <div class="nav-item" routerLink="/my-books" routerLinkActive="active">
+
+      <span>
+        📚
+      </span>
+
+      <p>
+        My Books
+      </p>
+
+    </div>
+
+
+
+    <!-- PROFILE -->
+
+    <div class="nav-item" routerLink="/profile" routerLinkActive="active">
+
+      <span>
+        👤
+      </span>
+
+      <p>
+        Profile
+      </p>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- ======================================================= -->
+  <!-- 📲 WHATSAPP -->
+  <!-- ======================================================= -->
+
+  <a href="https://wa.me/919372336433?text=Hello%20I%20am%20interested%20in%20your%20ebooks" class="whatsapp-float"
+    target="_blank" rel="noopener noreferrer">
+
+    <img src="assets/images/whatsapp.png" alt="WhatsApp">
+
+  </a>
+
+</div>

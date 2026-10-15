@@ -1,0 +1,387 @@
+<div class="folder-page">
+
+    <!-- ========================================= -->
+    <!-- HEADER -->
+    <!-- ========================================= -->
+
+    <header class="folder-header">
+
+        <div class="folder-navigation">
+
+            <button type="button" (click)="goBack()">
+                ← Back
+            </button>
+
+            <button type="button" (click)="goToLibrary()">
+                📚 Library
+            </button>
+
+        </div>
+
+
+        <div class="folder-heading">
+
+            <div class="folder-icon">
+                📁
+            </div>
+
+            <div>
+
+                <h1>
+                    {{ folder?.name }}
+                </h1>
+
+                <p>
+                    {{ folder?.description }}
+                </p>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- ========================================= -->
+    <!-- LOADING -->
+    <!-- ========================================= -->
+
+    <div class="folder-loading" *ngIf="loading">
+
+        <div class="spinner"></div>
+
+        <p>
+            Loading folder...
+        </p>
+
+    </div>
+
+
+
+    <main *ngIf="!loading">
+
+        <div class="access-checking" *ngIf="accessChecking">
+            <div class="spinner"></div>
+            <strong>Checking your access...</strong>
+            <span>Please wait while we verify your purchase or subscription.</span>
+        </div>
+
+
+        <!-- ========================================= -->
+        <!-- LOCKED FOLDER -->
+        <!-- ========================================= -->
+
+        <section class="folder-purchase-card" *ngIf="!accessChecking && !hasAccess">
+
+
+            <div class="purchase-info">
+
+                <span class="premium-label">
+                    🔒 PREMIUM FOLDER
+                </span>
+
+
+                <h2>
+                    Unlock {{ folder?.name }}
+                </h2>
+
+
+                <p>
+                    Get access to all books, videos,
+                    PDFs and learning resources inside
+                    this folder for 30 days.
+                </p>
+
+            </div>
+
+
+
+            <!-- ===================================== -->
+            <!-- DYNAMIC PRICE -->
+            <!-- ===================================== -->
+
+            <div class="folder-price">
+
+                <div>
+
+                    <strong>
+                        ₹{{ getFinalPrice() }}
+                    </strong>
+
+                    <del *ngIf="
+        getOfferPrice() > 0 &&
+        getSellingPrice() > getOfferPrice()
+      ">
+                        ₹{{ getSellingPrice() }}
+                    </del>
+
+                </div>
+
+                <small>
+                    {{ folder?.accessDurationDays || 30 }} Days Access
+                </small>
+
+                <div class="folder-coupon">
+                    <input
+                        type="text"
+                        [(ngModel)]="couponCode"
+                        placeholder="Coupon code"
+                        [disabled]="buying"
+                    />
+                    <button
+                        type="button"
+                        (click)="applyCoupon()"
+                        [disabled]="buying || !couponCode.trim()"
+                    >
+                        Apply
+                    </button>
+                </div>
+
+                <small *ngIf="couponMessage">
+                    {{ couponMessage }}
+                </small>
+
+                <button type="button" (click)="buyFolder()" [disabled]="buying">
+                    {{ buying ? 'Processing...' : 'Buy Folder →' }}
+                </button>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ========================================= -->
+        <!-- SUB FOLDERS -->
+        <!-- ========================================= -->
+
+        <section class="folder-section" *ngIf="!accessChecking && subFolders.length > 0">
+
+
+            <div class="section-title">
+
+                <h2>
+                    📂 Folders
+                </h2>
+
+                <span>
+                    {{ subFolders.length }}
+                </span>
+
+            </div>
+
+
+
+            <div class="subfolder-grid">
+
+
+                <div class="subfolder-card" *ngFor="let subFolder of subFolders" (click)="openSubFolder(subFolder)">
+
+
+                    <div class="subfolder-icon">
+                        📁
+                    </div>
+
+
+                    <div>
+
+                        <h3>
+                            {{ subFolder.name }}
+                        </h3>
+
+                        <p>
+                            Open folder →
+                        </p>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ========================================= -->
+        <!-- CONTENT -->
+        <!-- ========================================= -->
+
+        <section class="folder-section" *ngIf="!accessChecking && contents.length > 0">
+
+
+            <div class="section-title">
+
+                <h2>
+                    📚 Learning Resources
+                </h2>
+
+            </div>
+
+
+
+            <div class="content-grid">
+
+
+                <div class="content-card" *ngFor="let content of contents" (click)="openContent(content)">
+
+
+                    <div class="content-icon">
+
+
+                        <span *ngIf="content.type === 'pdf'">
+
+                            📄
+
+                        </span>
+
+
+                        <span *ngIf="content.type === 'video'">
+
+                            🎥
+
+                        </span>
+
+
+                        <span *ngIf="content.type === 'note'">
+
+                            📝
+
+                        </span>
+
+
+                    </div>
+
+
+
+                    <div>
+
+                        <span class="content-type">
+                            {{ content.type | uppercase }}
+                            <span *ngIf="content.type === 'note'" class="premium-content-badge">PREMIUM</span>
+                        </span>
+
+                        <h3>
+                            {{ content.title }}
+                        </h3>
+
+                    </div>
+
+
+
+                    <span class="content-arrow">
+                        →
+                    </span>
+
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ========================================= -->
+        <!-- EMPTY CONTENT -->
+        <!-- ========================================= -->
+
+        <section class="folder-empty" *ngIf="
+        subFolders.length === 0 &&
+        contents.length === 0
+      ">
+
+            <div>
+                📚
+            </div>
+
+            <h3>
+                No resources available yet
+            </h3>
+
+            <p>
+                Learning resources will appear here soon.
+            </p>
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+
+<!-- ========================================= -->
+<!-- 🔥 BOTTOM NAVBAR -->
+<!-- ========================================= -->
+
+<div class="bottom-navbar">
+
+
+    <!-- HOME -->
+
+    <div class="nav-item" routerLink="/" routerLinkActive="active">
+
+        <span>
+            🏠
+        </span>
+
+        <p>
+            Home
+        </p>
+
+    </div>
+
+
+
+    <!-- EXPLORE -->
+
+    <div class="nav-item" routerLink="/explore" routerLinkActive="active">
+
+        <span>
+            🔍
+        </span>
+
+        <p>
+            Explore
+        </p>
+
+    </div>
+
+
+
+    <!-- MY BOOKS -->
+
+    <div class="nav-item" routerLink="/my-books" routerLinkActive="active">
+
+        <span>
+            📚
+        </span>
+
+        <p>
+            My Books
+        </p>
+
+    </div>
+
+
+
+    <!-- PROFILE -->
+
+    <div class="nav-item" routerLink="/profile" routerLinkActive="active">
+
+        <span>
+            👤
+        </span>
+
+        <p>
+            Profile
+        </p>
+
+    </div>
+
+
+</div>

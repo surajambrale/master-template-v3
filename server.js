@@ -1,0 +1,3303 @@
+//dns code start
+
+const dns = require('dns');
+
+dns.setDefaultResultOrder('ipv4first');
+
+//dns code end
+require('dotenv').config();
+const notificationRoutes = require('./routes/notificationRoutes');
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+const XLSX = require('xlsx');
+const path = require('path');
+const axios = require('axios');
+const Testimonial = require('./models/Testimonial');
+const NotificationSetting = require('./models/NotificationSetting');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const Subscription = require('./models/Subscription');
+const bookRoutes = require('./routes/bookRoutes');
+const User = require('./models/User');
+const Purchase = require('./models/Purchase');
+const uploadBookRoute = require('./routes/uploadBookRoute');
+const dynamicBookRoute = require('./routes/bookRoutes');
+const DynamicBook = require('./models/DynamicBook');
+const SubscriptionSetting = require('./models/SubscriptionSetting');
+const AppSetting = require("./models/AppSetting");
+const upload = require('./config/multer');
+const cron = require('node-cron');
+const bcrypt = require('bcrypt');
+const app = express();
+const couponRoutes = require('./routes/couponRoutes');
+const folderAccessRoutes = require('./routes/folderAccessRoutes');
+const folderRoutes = require('./routes/folderRoutes');
+const contentRoutes =
+  require('./routes/contentRoutes');
+// const books = require('./data/books');
+const books = require('./data/books');
+const Content = require('./models/Content');
+const contentUploadRoutes =
+  require('./routes/contentUploadRoutes');
+
+// multer code start
+
+const multer = require('multer');
+const fs = require('fs');
+
+// multer code end
+
+// gmail code start
+const nodemailer = require('nodemailer');
+//gmail code end
+
+const Folder = require('./models/Folder');
+const FolderAccess = require('./models/FolderAccess');
+const Coupon = require('./models/Coupon');
+const Banner = require('./models/Banner');
+const requireAuth = require('./middleware/auth');
+const contentAccessRoutes =
+  require('./routes/contentAccess');
+
+
+
+app.use(cors({
+  origin: [
+    process.env.LOCAL_HOST_URL,
+    process.env.FRONTEND_URL,
+    process.env.RENDER_URL
+  ],
+  credentials: true
+}));
+
+app.use(
+  '/api/content-access',
+  contentAccessRoutes
+);
+
+app.use(express.json());
+// app.use('/', bookRoutes);
+app.use('/subscription', subscriptionRoutes);
+app.use('/api/books', uploadBookRoute);
+app.use('/admin/books', uploadBookRoute);
+app.use('/books', dynamicBookRoute);
+app.use('/notification', notificationRoutes);
+app.use('/books', bookRoutes);
+app.use('/folders', folderRoutes);
+app.use('/api/folders', folderRoutes);
+app.use('/content', contentRoutes);
+app.use('/content', contentUploadRoutes);
+app.use('/coupon', couponRoutes);
+app.use(
+  '/api/folder-access',
+  folderAccessRoutes
+);
+
+
+
+const SECRET = process.env.JWT_SECRET;
+// const ADMIN_PASSWORD = "admin123";
+// const ADMIN_PASSWORD = "swami-sai-(],1403()/,";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// notification bot code start
+
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+// notification bot code end
+
+// gmail code start
+// const transporter = nodemailer.createTransport({
+//   service: 'gmail',
+//   auth: {
+//     user: process.env.EMAIL_USER, // tera email
+//     pass: process.env.EMAIL_PASS // 🔥 app password
+//   }
+// });
+
+const transporter = nodemailer.createTransport({
+
+  host: "smtp.gmail.com",
+
+  port: 587,
+
+  secure: false,
+
+  family: 4,
+
+  auth: {
+
+    user: process.env.EMAIL_USER,
+
+    pass: process.env.EMAIL_PASS
+
+  },
+
+  tls: {
+
+    family: 4,
+
+    rejectUnauthorized: false
+
+  }
+
+});
+//gmail code end
+
+//gmail send function start
+
+async function sendEmail({ userName, paymentId, bookId }) {
+  try {
+    await transporter.sendMail({
+      from: 'ssbuilds.ebooks@gmail.com',
+      to: 'ssbuilds.ebooks@gmail.com', // tu khud ko bhej raha hai
+      subject: '📚 New Book Purchase 🚀',
+      html: `
+        <h2>New Purchase Alert</h2>
+        <p><b>User:</b> ${userName}</p>
+        <p><b>Book ID:</b> ${bookId}</p>
+        <p><b>Payment ID:</b> ${paymentId}</p>
+      `
+    });
+
+    console.log("Email sent ✅");
+  } catch (err) {
+    console.log("Email error ❌", err);
+  }
+}
+
+//gmail send function end
+
+// ================= ADMIN =================
+
+// ===============================
+// 🔐 ADMIN LOGIN (Dynamic Password)
+// ===============================
+
+app.post('/admin-login', async (req, res) => {
+
+  try {
+
+    const { password } = req.body;
+
+    // App Setting fetch karo
+    const setting = await AppSetting.findOne();
+
+    if (!setting) {
+
+      return res.status(404).json({
+        message: "App Settings Not Found"
+      });
+
+    }
+
+    // Password match
+    if (password === setting.password) {
+
+      const token = jwt.sign(
+        { role: 'admin' },
+        SECRET,
+        { expiresIn: '1h' }
+      );
+
+      return res.json({ token });
+
+    }
+
+    return res.status(401).json({
+      message: "Invalid Password"
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    return res.status(500).json({
+      message: "Server Error"
+    });
+
+  }
+
+});
+
+// ===============================
+// 🔐 VERIFY TOKEN
+// ===============================
+
+const verifyAdmin = (req, res, next) => {
+
+  const authorization = req.headers.authorization || '';
+  const token = authorization.startsWith('Bearer ')
+    ? authorization.substring(7)
+    : authorization;
+
+  if (!token) {
+
+    return res.status(401).json({
+      message: "No token"
+    });
+
+  }
+
+  try {
+
+    const decoded = jwt.verify(token, SECRET);
+
+    if (decoded.role !== "admin") {
+
+      return res.status(403).json({
+        message: "Access denied"
+      });
+
+    }
+
+    next();
+
+  }
+
+  catch (err) {
+
+    return res.status(401).json({
+      message: "Invalid token"
+    });
+
+  }
+
+};
+
+// ===============================
+// 🔐 VERIFY API
+// ===============================
+
+app.get('/admin-verify', verifyAdmin, (req, res) => {
+
+  res.json({
+
+    success: true
+
+  });
+
+});
+
+app.get('/admin/export-xlsx', verifyAdmin, async (req, res) => {
+  try {
+    const [users, booksData, purchases, folderAccess, subscriptions, folders, content, coupons, testimonials, appSettings, subscriptionSettings, notificationSettings, banners] = await Promise.all([
+      User.find().select('-password').lean(),
+      DynamicBook.find().lean(),
+      Purchase.find().lean(),
+      FolderAccess.find().populate('user', 'name email phone').populate('folder', 'name').lean(),
+      Subscription.find().lean(),
+      Folder.find().lean(),
+      Content.find().select('-url -noteContent').lean(),
+      Coupon.find().lean(),
+      Testimonial.find().lean(),
+      AppSetting.find().select('-password').lean(),
+      SubscriptionSetting.find().lean(),
+      NotificationSetting.find().lean(),
+      Banner.find().lean()
+    ]);
+
+    const workbook = XLSX.utils.book_new();
+    const addSheet = (name, rows) => {
+      const safeRows = rows.length ? rows : [{ message: 'No records found' }];
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(safeRows), name);
+    };
+
+    addSheet('Users', users);
+    addSheet('Books', booksData);
+    addSheet('Book Purchases', purchases);
+    addSheet('Folder Access', folderAccess.map(item => ({
+      ...item,
+      userName: item.user?.name || '',
+      userEmail: item.user?.email || '',
+      folderName: item.folder?.name || ''
+    })));
+    addSheet('Subscriptions', subscriptions);
+    addSheet('Folders', folders);
+    addSheet('Content', content);
+    addSheet('Coupons', coupons);
+    addSheet('Testimonials', testimonials);
+    addSheet('App Settings', appSettings);
+    addSheet('Subscription Settings', subscriptionSettings);
+    addSheet('Notification Settings', notificationSettings);
+    addSheet('Banners', banners);
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="ebookapp-export.xlsx"');
+    return res.send(buffer);
+  } catch (err) {
+    console.error('ADMIN XLSX EXPORT ERROR:', err);
+    return res.status(500).json({ success: false, message: 'Unable to export application data' });
+  }
+});
+
+app.get('/banners', async (req, res) => {
+  try {
+    const now = new Date();
+    const banners = await Banner.find({
+      active: true,
+      startsAt: { $lte: now },
+      $or: [{ endsAt: null }, { endsAt: { $gt: now } }]
+    }).sort({ createdAt: -1 }).lean();
+    return res.json(banners);
+  } catch (err) {
+    return res.status(500).json({ message: 'Unable to load banners' });
+  }
+});
+
+app.get('/admin/banners', verifyAdmin, async (req, res) => {
+  return res.json(await Banner.find().sort({ createdAt: -1 }).lean());
+});
+
+app.post('/admin/banners', verifyAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { title, message = '', link = '', startsAt, endsAt } = req.body;
+    if (!title?.trim()) return res.status(400).json({ message: 'Banner title is required' });
+    const banner = await Banner.create({
+      title: title.trim(), message, link,
+      imageUrl: req.file?.path || '',
+      startsAt: startsAt || new Date(),
+      endsAt: endsAt || null
+    });
+    return res.json({ success: true, banner });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || 'Unable to create banner' });
+  }
+});
+
+app.patch('/admin/banners/:id/toggle', verifyAdmin, async (req, res) => {
+  const banner = await Banner.findById(req.params.id);
+  if (!banner) return res.status(404).json({ message: 'Banner not found' });
+  banner.active = !banner.active;
+  await banner.save();
+  return res.json({ success: true, banner });
+});
+
+app.delete('/admin/banners/:id', verifyAdmin, async (req, res) => {
+  await Banner.findByIdAndDelete(req.params.id);
+  return res.json({ success: true });
+});
+
+// ===============================
+// 🔐 CHANGE ADMIN PASSWORD
+// ===============================
+
+app.put('/admin/change-password', verifyAdmin, async (req, res) => {
+
+  try {
+
+    const {
+
+      currentPassword,
+
+      newPassword,
+
+      confirmPassword
+
+    } = req.body;
+
+    const setting = await AppSetting.findOne();
+
+    if (!setting) {
+
+      return res.status(404).json({
+
+        success: false,
+
+        message: "App Setting Not Found"
+
+      });
+
+    }
+
+    if (setting.password !== currentPassword) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message: "Current Password is Incorrect"
+
+      });
+
+    }
+
+    if (newPassword !== confirmPassword) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        message: "Passwords do not match"
+
+      });
+
+    }
+
+    setting.password = newPassword;
+
+    await setting.save();
+
+    res.json({
+
+      success: true,
+
+      message: "Password Updated Successfully"
+
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      success: false,
+
+      message: "Server Error"
+
+    });
+
+  }
+
+});
+
+// =========================================================
+// 🔐 SECURE CONTENT ACCESS
+// =========================================================
+app.get(
+  '/content/secure/:contentId',
+  requireAuth,
+  async (req, res) => {
+
+    try {
+
+      const { contentId } = req.params;
+      const userId = req.user.id;
+
+      // =========================================
+      // FIND CONTENT
+      // =========================================
+
+      const content = await Content.findById(contentId);
+
+      if (!content) {
+        return res.status(404).json({
+          success: false,
+          message: 'Content not found'
+        });
+      }
+
+      // =========================================
+      // NOTES
+      // =========================================
+
+      if (content.type === 'note') {
+        return res.status(400).json({
+          success: false,
+          message: 'Notes do not require file streaming'
+        });
+      }
+
+      // =========================================
+      // FIND FOLDER
+      // =========================================
+
+      const folder = await Folder.findById(
+        content.folderId
+      );
+
+      if (!folder) {
+        return res.status(404).json({
+          success: false,
+          message: 'Folder not found'
+        });
+      }
+
+      // =========================================
+      // 🔐 USER FOLDER ACCESS
+      // =========================================
+
+      const access = await FolderAccess.findOne({
+        user: userId,
+        folder: folder._id,
+        isActive: true,
+        expiryDate: {
+          $gt: new Date()
+        }
+      });
+
+      const subscription = await Subscription.findOne({
+        userId: String(userId),
+        status: 'active',
+        expiryDate: {
+          $gt: new Date()
+        }
+      });
+
+      if (!access && !subscription) {
+
+        console.log(
+          '🚫 CONTENT ACCESS DENIED:',
+          {
+            userId,
+            folderId: folder._id.toString(),
+            contentId
+          }
+        );
+
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have access to this content'
+        });
+      }
+
+      // =========================================
+      // CONTENT URL
+      // =========================================
+
+      if (
+        !content.url ||
+        typeof content.url !== 'string'
+      ) {
+
+        return res.status(404).json({
+          success: false,
+          message: 'Content file is not available'
+        });
+      }
+
+      console.log(
+        '🔐 SECURE FILE REQUEST:',
+        {
+          contentId,
+          userId,
+          folderId: folder._id.toString(),
+          type: content.type,
+          url: content.url
+        }
+      );
+
+      // =========================================
+      // FETCH CLOUDINARY FILE
+      // =========================================
+
+      const axios = require('axios');
+
+      let cloudinaryResponse;
+
+      try {
+
+        cloudinaryResponse = await axios.get(
+          content.url,
+          {
+            responseType: 'stream',
+            timeout: 30000,
+            validateStatus: (status) =>
+              status >= 200 && status < 300
+          }
+        );
+
+      } catch (cloudinaryError) {
+
+        console.error(
+          '❌ CLOUDINARY FETCH ERROR:',
+          {
+            message: cloudinaryError.message,
+            status: cloudinaryError.response?.status,
+            statusText:
+              cloudinaryError.response?.statusText,
+            url: content.url
+          }
+        );
+
+        return res.status(502).json({
+          success: false,
+          message: 'Unable to fetch content file'
+        });
+      }
+
+      // =========================================
+      // CONTENT TYPE
+      // =========================================
+
+      let contentType =
+        'application/octet-stream';
+
+      if (content.type === 'pdf') {
+        contentType = 'application/pdf';
+      }
+
+      if (content.type === 'video') {
+        contentType = 'video/mp4';
+      }
+
+      // =========================================
+      // RESPONSE HEADERS
+      // =========================================
+
+      res.setHeader(
+        'Content-Type',
+        contentType
+      );
+
+      res.setHeader(
+        'Cache-Control',
+        'private, no-store, no-cache, must-revalidate'
+      );
+
+      res.setHeader(
+        'Pragma',
+        'no-cache'
+      );
+
+      res.setHeader(
+        'Expires',
+        '0'
+      );
+
+      res.setHeader(
+        'X-Content-Type-Options',
+        'nosniff'
+      );
+
+      // =========================================
+      // STREAM ERROR
+      // =========================================
+
+      cloudinaryResponse.data.on(
+        'error',
+        (streamError) => {
+
+          console.error(
+            '❌ CLOUDINARY STREAM ERROR:',
+            streamError
+          );
+
+          if (!res.headersSent) {
+            res.status(500).json({
+              success: false,
+              message: 'File streaming failed'
+            });
+          } else {
+            res.destroy(streamError);
+          }
+
+        }
+      );
+
+      // =========================================
+      // STREAM FILE
+      // =========================================
+
+      cloudinaryResponse.data.pipe(res);
+
+    } catch (error) {
+
+      console.error(
+        '❌ SECURE CONTENT ERROR:',
+        error
+      );
+
+      if (!res.headersSent) {
+
+        return res.status(500).json({
+          success: false,
+          message: 'Unable to open content'
+        });
+
+      }
+
+    }
+
+  }
+);
+
+
+// ================= DB =================
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(async () => {
+    console.log("MongoDB Connected ✅");
+
+    const legacyPurchases = await Purchase.find({
+      expiryDate: { $exists: false }
+    });
+
+    for (const purchase of legacyPurchases) {
+      const startDate = purchase.createdAt || new Date();
+      const expiryDate = new Date(startDate);
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+      purchase.startDate = startDate;
+      purchase.expiryDate = expiryDate;
+      purchase.isActive = expiryDate > new Date();
+      await purchase.save();
+    }
+  })
+  .catch(err => console.log(err));
+
+
+
+//subcription setting code start
+async function createDefaultSubscription() {
+
+  const exist = await SubscriptionSetting.findOne();
+
+  if (!exist) {
+
+    await SubscriptionSetting.create({
+
+      planName: "Premium",
+
+      price: 99,
+
+      duration: 30,
+
+      active: true
+
+    });
+
+    console.log("Default Subscription Created ✅");
+
+  }
+
+}
+
+createDefaultSubscription();
+
+// ===============================
+// GET SUBSCRIPTION SETTINGS
+// ===============================
+
+app.get('/subscription-setting', async (req, res) => {
+
+  try {
+
+    const setting = await SubscriptionSetting.findOne();
+
+    res.json(setting);
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+
+// ===============================
+// GET APP SETTINGS
+// ===============================
+
+app.get("/app-setting", async (req, res) => {
+
+  try {
+
+    let setting = await AppSetting.findOne();
+
+    if (!setting) {
+
+      setting = await AppSetting.create({});
+
+    }
+
+    res.json(setting);
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error"
+    });
+
+  }
+
+});
+
+
+// put api
+
+app.put("/app-setting", async (req, res) => {
+
+  try {
+
+    let setting = await AppSetting.findOne();
+
+    if (!setting) {
+
+      setting = new AppSetting();
+
+    }
+
+    setting.appName = req.body.appName;
+    setting.logo = req.body.logo;
+
+    setting.settings = req.body.settings || [];
+
+    // Password ko kabhi overwrite mat karo
+    if (req.body.password !== undefined) {
+      setting.password = req.body.password;
+    }
+
+    await setting.save();
+
+    res.json({
+
+      success: true,
+      message: "Updated Successfully",
+      setting
+
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      success: false,
+      message: "Server Error"
+
+    });
+
+  }
+
+});
+
+app.post("/app-setting", async (req, res) => {
+
+  const { settings } = req.body;
+
+  let appSetting = await AppSetting.findOne();
+
+  if (!appSetting) {
+
+    appSetting = new AppSetting();
+
+  }
+
+  appSetting.settings = settings;
+
+  await appSetting.save();
+
+  res.json({
+    success: true
+  });
+
+});
+
+// ===============================
+// UPDATE SUBSCRIPTION SETTINGS
+// ===============================
+
+app.put('/subscription-setting', async (req, res) => {
+
+  try {
+
+    const {
+
+      planName,
+
+      price,
+
+      duration,
+
+      active
+
+    } = req.body;
+
+    const setting = await SubscriptionSetting.findOne();
+
+    setting.planName = planName;
+    setting.price = price;
+    setting.duration = duration;
+    setting.active = active;
+
+    await setting.save();
+
+    res.json({
+
+      success: true,
+
+      message: "Subscription Updated"
+
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      success: false
+
+    });
+
+  }
+
+});
+
+app.get('/subscription-setting', async (req, res) => {
+
+  try {
+
+    const setting = await SubscriptionSetting.findOne();
+
+    res.json(setting);
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false
+    });
+
+  }
+
+});
+
+app.put('/subscription-setting', async (req, res) => {
+
+  try {
+
+    const setting = await SubscriptionSetting.findOneAndUpdate(
+
+      {},
+
+      req.body,
+
+      {
+
+        new: true,
+
+        upsert: true
+
+      }
+
+    );
+
+    res.json({
+
+      success: true,
+
+      setting
+
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      success: false
+
+    });
+
+  }
+
+});
+
+//subcription setting code end
+
+// =====================================
+// ADMIN - FOLDER PURCHASES
+// =====================================
+
+app.get('/admin/folder-purchases', async (req, res) => {
+  try {
+
+    const purchases = await FolderAccess.find({
+      accessType: 'purchase'
+    })
+      .populate('user', 'name phone email')
+      .populate('folder', 'name sellingPrice offerPrice')
+      .sort({ createdAt: -1 });
+
+    const data = purchases.map((item) => ({
+      _id: item._id,
+
+      userId: item.user?._id || '',
+      userName: item.user?.name || '',
+      userPhone: item.user?.phone || '',
+      userEmail: item.user?.email || '',
+
+      folderId: item.folder?._id || '',
+      folderName: item.folder?.name || '',
+
+      accessType: item.accessType,
+
+      amount: item.amount || 0,
+
+      paymentId: item.paymentId || '',
+      orderId: item.orderId || '',
+      couponCode: item.couponCode || '',
+
+      startDate: item.startDate,
+      expiryDate: item.expiryDate,
+
+      isActive: item.isActive,
+
+      createdAt: item.createdAt
+    }));
+
+    res.json(data);
+
+  } catch (error) {
+
+    console.error(
+      '❌ ADMIN FOLDER PURCHASES ERROR:',
+      error
+    );
+
+    res.status(500).json({
+      message: 'Unable to load folder purchases'
+    });
+
+  }
+});
+
+// =====================================
+// ADMIN - DELETE FOLDER PURCHASE
+// =====================================
+
+app.delete('/admin/folder-purchase/:id', async (req, res) => {
+  try {
+
+    const { id } = req.params;
+
+    const deleted = await FolderAccess.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        message: 'Folder purchase not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Folder purchase deleted successfully'
+    });
+
+  } catch (error) {
+
+    console.error(
+      '❌ DELETE FOLDER PURCHASE ERROR:',
+      error
+    );
+
+    res.status(500).json({
+      message: 'Unable to delete folder purchase'
+    });
+
+  }
+});
+
+//book reading code start
+
+const ReadingProgressSchema = new mongoose.Schema({
+
+  userId: String,
+
+  bookId: String,
+
+  currentPage: Number,
+
+  totalPages: Number,
+
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+
+});
+
+const ReadingProgress = mongoose.model(
+  'ReadingProgress',
+  ReadingProgressSchema
+);
+
+// 🔥 SAVE READING PROGRESS
+
+app.post('/save-progress', async (req, res) => {
+
+  try {
+
+    const {
+      userId,
+      bookId,
+      currentPage,
+      totalPages
+    } = req.body;
+
+    const existing =
+      await ReadingProgress.findOne({
+        userId,
+        bookId
+      });
+
+    if (existing) {
+
+      existing.currentPage = currentPage;
+
+      existing.totalPages = totalPages;
+
+      existing.updatedAt = new Date();
+
+      await existing.save();
+
+    } else {
+
+      await ReadingProgress.create({
+
+        userId,
+        bookId,
+        currentPage,
+        totalPages
+
+      });
+
+    }
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      error: 'Progress save failed'
+    });
+
+  }
+
+});
+
+// 🔥 GET LAST READING
+
+app.get('/last-reading/:userId', async (req, res) => {
+
+  try {
+
+    const progress =
+      await ReadingProgress.findOne({
+
+        userId: req.params.userId
+
+      }).sort({ updatedAt: -1 });
+
+    res.json(progress);
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      error: 'Failed'
+    });
+
+  }
+
+});
+
+//book reading code end
+
+
+// ================= ADMIN DATA =================
+
+// 👤 USERS
+app.get('/admin/users', verifyAdmin, async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Error loading users" });
+  }
+});
+
+// =========================================================
+// ADMIN GRANT ACCESS DATA
+// =========================================================
+app.get('/admin/grant-data', verifyAdmin, async (req, res) => {
+  try {
+    const [users, dynamicBooks, folders] = await Promise.all([
+      User.find().select('_id name phone email').sort({ name: 1 }),
+      DynamicBook.find().sort({ createdAt: -1 }),
+      Folder.find().sort({ createdAt: -1 })
+    ]);
+
+    res.json({ success: true, users, books: books || [], dynamicBooks, folders });
+  } catch (err) {
+    console.error('ADMIN GRANT DATA ERROR:', err);
+    res.status(500).json({ success: false, message: 'Unable to load grant access data' });
+  }
+});
+
+// 💳 PURCHASES (WITH USER NAME)
+app.get('/admin/purchases', verifyAdmin, async (req, res) => {
+  try {
+
+    const purchases = await Purchase.find();
+
+    const result = await Promise.all(
+      purchases.map(async (p) => {
+
+        let user = null;
+
+        // 🔥 FIX: ObjectId conversion
+        if (mongoose.Types.ObjectId.isValid(p.userId)) {
+          user = await User.findById(p.userId);
+        }
+
+        return {
+          _id: p._id,
+          bookId: p.bookId,
+          paymentId: p.paymentId,
+
+          amount: p.amount,
+
+          createdAt: p.createdAt,
+
+          userName: user ? user.name : "Unknown",
+          userPhone: user ? user.phone : "N/A"
+        };
+      })
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    res.status(500).json({ message: 'Error loading purchases' });
+  }
+});
+
+// ❌ DELETE USER
+app.delete('/admin/user/:id', verifyAdmin, async (req, res) => {
+  try {
+    await Promise.all([
+      Purchase.deleteMany({ userId: String(req.params.id) }),
+      Subscription.deleteMany({ userId: String(req.params.id) }),
+      FolderAccess.deleteMany({ user: req.params.id }),
+      ReadingProgress.deleteMany({ userId: String(req.params.id) }),
+      Testimonial.deleteMany({ userId: req.params.id })
+    ]);
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "User and all related data deleted" });
+  } catch {
+    res.status(500).json({ message: "Delete error" });
+  }
+});
+
+// ❌ DELETE PURCHASE
+app.delete('/admin/purchase/:id', verifyAdmin, async (req, res) => {
+  try {
+    await Purchase.findByIdAndDelete(req.params.id);
+    res.json({ message: "Purchase deleted" });
+  } catch {
+    res.status(500).json({ message: "Delete error" });
+  }
+});
+
+
+// ================= AUTH =================
+
+// REGISTER
+app.post('/register', async (req, res) => {
+
+  try {
+
+    console.log("STEP 1");
+
+    const { name, phone, email, password } = req.body;
+
+    console.log("STEP 2");
+
+    // ... validations
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    console.log("STEP 3");
+
+    await User.create({
+      name,
+      phone,
+      email: email.toLowerCase(),
+      password: hashedPassword
+    });
+
+    console.log("STEP 4 USER SAVED");
+
+    // const setting = await NotificationSetting.findOne();
+
+    // console.log("STEP 5");
+
+    // if (setting?.welcomeEmail) {
+
+    //   console.log("STEP 6 SENDING EMAIL");
+
+    //   try {
+
+    //     await transporter.sendMail({
+    //       from: process.env.EMAIL_USER,
+    //       to: email,
+    //       subject: "Welcome",
+    //       html: "Welcome"
+
+    //     });
+
+    //     console.log("STEP 7 EMAIL SENT");
+
+    //   } catch (e) {
+
+    //     console.log("EMAIL FAILED", e.message);
+
+    //   }
+
+    // }
+
+    console.log("STEP 8 RESPONSE");
+
+    res.json({
+      success: true,
+      message: "Registered Successfully"
+    });
+
+  } catch (err) {
+
+    console.log("REGISTER ERROR", err);
+
+    res.status(500).json({
+      message: "Server Error"
+    });
+
+  }
+
+});
+
+app.put('/profile', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (req.body.name !== undefined) {
+      const name = String(req.body.name).trim();
+      if (!name) {
+        return res.status(400).json({ success: false, message: 'Name is required' });
+      }
+      user.name = name;
+    }
+
+    if (req.file?.path) {
+      user.profileImage = req.file.path;
+    }
+
+    await user.save();
+    return res.json({ success: true, user });
+  } catch (err) {
+    console.error('PROFILE UPDATE ERROR:', err);
+    return res.status(500).json({ success: false, message: 'Unable to update profile' });
+  }
+});
+
+// LOGIN
+app.post('/login', async (req, res) => {
+
+  try {
+
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+
+      return res.status(400).json({
+
+        message: "Email & Password Required"
+
+      });
+
+    }
+
+    const user = await User.findOne({
+
+      email: email.toLowerCase()
+
+    });
+
+    if (!user) {
+
+      return res.status(404).json({
+
+        message: "User Not Found"
+
+      });
+
+    }
+
+    const match = await bcrypt.compare(
+
+      password,
+
+      user.password
+
+    );
+
+    if (!match) {
+
+      return res.status(400).json({
+
+        message: "Invalid Password"
+
+      });
+
+    }
+
+    const token = jwt.sign(
+  {
+    id: String(user._id),
+    role: 'user'
+  },
+  SECRET,
+  {
+    expiresIn: '7d'
+  }
+);
+
+   res.json({
+  success: true,
+  token,
+  user
+});
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      message: "Server Error"
+
+    });
+
+  }
+
+});
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_SECRET
+});
+
+//live key
+
+// CREATE ORDER
+app.post('/create-order', requireAuth, async (req, res) => {
+  try {
+    const { amount, bookId } = req.body;
+
+    if (!bookId || !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'Valid book and amount are required' });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: amount * 100,
+      currency: "INR",
+      notes: { bookId: String(bookId), userId: String(req.user.id) }
+    });
+
+    res.json(order);
+
+  } catch {
+    res.status(500).json({ message: 'Order failed' });
+  }
+});
+
+// =========================================================
+// CREATE FOLDER PAYMENT ORDER
+// =========================================================
+app.post('/create-folder-order', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { folderId, couponCode = '' } = req.body;
+
+    if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
+    if (!folderId) return res.status(400).json({ success: false, message: 'Folder ID is required' });
+
+    const folder = await Folder.findById(folderId);
+    if (!folder) return res.status(404).json({ success: false, message: 'Folder not found' });
+
+    const existingAccess = await FolderAccess.findOne({ user: userId, folder: folderId, isActive: true, expiryDate: { $gt: new Date() } });
+    const subscription = await Subscription.findOne({ userId: String(userId), status: 'active', expiryDate: { $gt: new Date() } });
+    if (existingAccess || subscription) return res.status(400).json({ success: false, alreadyHasAccess: true, message: 'Folder access is already active' });
+
+    const sellingPrice = Number(folder.sellingPrice) || 0;
+    const offerPrice = Number(folder.offerPrice) || 0;
+    const basePrice = offerPrice > 0 && offerPrice < sellingPrice ? offerPrice : sellingPrice;
+    if (basePrice <= 0) return res.status(400).json({ success: false, message: 'Folder price is not available' });
+
+    let coupon = null, discount = 0, finalPrice = basePrice;
+    if (couponCode) {
+      coupon = await Coupon.findOne({ code: String(couponCode).trim().toUpperCase(), active: true });
+      if (!coupon) return res.status(400).json({ success: false, message: 'Invalid Coupon' });
+      if (coupon.expiryDate && coupon.expiryDate <= new Date()) return res.status(400).json({ success: false, message: 'Coupon Expired' });
+      if (coupon.usedCount >= coupon.usageLimit) return res.status(400).json({ success: false, message: 'Coupon Limit Reached' });
+      if (basePrice < Number(coupon.minimumOrder || 0)) return res.status(400).json({ success: false, message: `Minimum Order ₹${coupon.minimumOrder}` });
+      discount = coupon.discountType === 'flat' ? Number(coupon.discountValue || 0) : (basePrice * Number(coupon.discountValue || 0)) / 100;
+      discount = Math.min(Math.max(discount, 0), basePrice);
+      finalPrice = Math.max(basePrice - discount, 0);
+    }
+
+    if (finalPrice === 0) {
+      const startDate = new Date();
+      const expiryDate = new Date(startDate);
+      const durationDays = Number(folder.accessDurationDays) > 0 ? Number(folder.accessDurationDays) : 30;
+      expiryDate.setDate(expiryDate.getDate() + durationDays);
+      let access = await FolderAccess.findOne({ user: userId, folder: folderId });
+      const data = { startDate, expiryDate, accessType: 'purchase', amount: 0, paymentId: 'coupon_free', orderId: 'coupon_free', couponCode: coupon?.code || '', isActive: true };
+      if (access) { Object.assign(access, data); await access.save(); } else { access = await FolderAccess.create({ user: userId, folder: folderId, ...data }); }
+      if (coupon) await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+      return res.json({ success: true, free: true, message: 'Folder unlocked with coupon 🎉', finalPrice: 0, discount, folderId: folder._id });
+    }
+
+    const order = await razorpay.orders.create({ amount: Math.round(finalPrice * 100), currency: 'INR', notes: { folderId: String(folder._id), userId: String(userId), couponCode: coupon?.code || '' } });
+    res.json({ success: true, id: order.id, amount: order.amount, currency: order.currency, folderId: folder._id, basePrice, discount, finalPrice, couponCode: coupon?.code || '' });
+  } catch (error) {
+    console.error('CREATE FOLDER ORDER ERROR:', error);
+    res.status(400).json({ success: false, message: error.message || 'Unable to create folder order' });
+  }
+});
+
+// =========================================================
+// VERIFY FOLDER PAYMENT
+// =========================================================
+app.post('/verify-folder-payment', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, folderId, couponCode = '' } = req.body;
+    if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !folderId) return res.status(400).json({ success: false, message: 'Required payment data missing' });
+
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_SECRET).update(body).digest('hex');
+    if (expectedSignature !== razorpay_signature) return res.status(400).json({ success: false, message: 'Invalid payment ❌' });
+
+    const folder = await Folder.findById(folderId);
+    if (!folder) return res.status(404).json({ success: false, message: 'Folder not found' });
+    const order = await razorpay.orders.fetch(razorpay_order_id);
+    if (!order || String(order.notes?.folderId || '') !== String(folderId)) return res.status(400).json({ success: false, message: 'Order and folder mismatch' });
+    if (order.notes?.userId && String(order.notes.userId) !== String(userId)) return res.status(403).json({ success: false, message: 'Order belongs to another user' });
+
+    const sellingPrice = Number(folder.sellingPrice) || 0;
+    const offerPrice = Number(folder.offerPrice) || 0;
+    const basePrice = offerPrice > 0 && offerPrice < sellingPrice ? offerPrice : sellingPrice;
+    let coupon = null, discount = 0, expectedAmount = basePrice;
+    const actualCouponCode = couponCode || order.notes?.couponCode || '';
+    if (actualCouponCode) {
+      coupon = await Coupon.findOne({ code: String(actualCouponCode).trim().toUpperCase(), active: true });
+      if (!coupon) return res.status(400).json({ success: false, message: 'Invalid Coupon' });
+      if (coupon.expiryDate && coupon.expiryDate <= new Date()) return res.status(400).json({ success: false, message: 'Coupon Expired' });
+      if (coupon.usedCount >= coupon.usageLimit) return res.status(400).json({ success: false, message: 'Coupon Limit Reached' });
+      if (basePrice < Number(coupon.minimumOrder || 0)) return res.status(400).json({ success: false, message: `Minimum Order ₹${coupon.minimumOrder}` });
+      discount = coupon.discountType === 'flat' ? Number(coupon.discountValue || 0) : (basePrice * Number(coupon.discountValue || 0)) / 100;
+      discount = Math.min(Math.max(discount, 0), basePrice);
+      expectedAmount = Math.max(basePrice - discount, 0);
+    }
+
+    if (Number(order.amount) !== Math.round(expectedAmount * 100)) return res.status(400).json({ success: false, message: 'Payment amount does not match folder price' });
+    const duplicate = await FolderAccess.findOne({ $or: [{ paymentId: razorpay_payment_id }, { orderId: razorpay_order_id }] });
+    if (duplicate) return res.json({ success: true, message: 'Folder purchase already verified', access: duplicate });
+
+    const startDate = new Date();
+    const expiryDate = new Date(startDate);
+    const durationDays = Number(folder.accessDurationDays) > 0 ? Number(folder.accessDurationDays) : 30;
+    expiryDate.setDate(expiryDate.getDate() + durationDays);
+    let access = await FolderAccess.findOne({ user: userId, folder: folderId });
+    const data = { startDate, expiryDate, accessType: 'purchase', amount: expectedAmount, paymentId: razorpay_payment_id, orderId: razorpay_order_id, couponCode: coupon?.code || '', isActive: true };
+    if (access) { Object.assign(access, data); await access.save(); } else { access = await FolderAccess.create({ user: userId, folder: folderId, ...data }); }
+    if (coupon) await Coupon.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+
+    res.json({ success: true, message: 'Folder purchased successfully ✅', access, basePrice, discount, finalPrice: expectedAmount });
+  } catch (error) {
+    console.error('VERIFY FOLDER PAYMENT ERROR:', error);
+    res.status(400).json({ success: false, message: error.message || 'Folder payment verification failed' });
+  }
+});
+
+// VERIFY PAYMENT
+app.post('/verify-payment', requireAuth, async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      bookId,
+      amount
+    } = req.body;
+    const userId = req.user.id;
+
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET)  //live key. "secret key" add karna hai ider.
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: 'Invalid payment ❌' });
+    }
+
+    const order = await razorpay.orders.fetch(razorpay_order_id);
+    if (!order || String(order.notes?.userId || '') !== String(userId) || String(order.notes?.bookId || '') !== String(bookId)) {
+      return res.status(403).json({ message: 'Order does not belong to this user or book' });
+    }
+
+    if (Number(order.amount) !== Math.round(Number(amount) * 100)) {
+      return res.status(400).json({ message: 'Payment amount does not match book price' });
+    }
+
+    const startDate = new Date();
+    const expiryDate = new Date(startDate);
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+    await Purchase.create({
+      userId,
+      bookId,
+      amount: Number(amount),
+      // bookId: Number(bookId),
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      startDate,
+      expiryDate,
+      isActive: true
+    });
+
+    //verify payment code end
+
+    //gmail send code start
+
+    // user name nikal
+    let user = await User.findById(userId);
+
+    // 🔥 EMAIL SEND
+    await sendEmail({
+      userName: user ? user.name : "Unknown",
+      paymentId: razorpay_payment_id,
+      bookId: bookId
+    });
+    //gmail send code end
+
+    //notification bot code start
+
+    await sendTelegram(`
+📚 New Book Purchase 🚀
+
+👤 User: ${user ? user.name : "Unknown"}
+📱 Phone: ${user ? user.phone : "N/A"}
+📖 Book: ${bookId}
+💳 Payment: ${razorpay_payment_id}
+`);
+
+    //notification bot code end
+
+    res.json({ success: true });
+
+  } catch {
+    res.status(500).json({ message: 'Verification failed' });
+  }
+
+
+});
+
+
+// ================= BOOK =================
+
+app.get('/check/:userId/:bookId', requireAuth, async (req, res) => {
+
+  try {
+
+    if (String(req.user.id) !== String(req.params.userId)) {
+      return res.status(403).json({ access: false });
+    }
+
+    const hasPurchasedBefore = await Purchase.exists({
+      userId: req.params.userId,
+      bookId: req.params.bookId
+    });
+
+    const purchase = await Purchase.findOne({
+
+      userId: req.params.userId,
+
+      bookId: req.params.bookId,
+      isActive: true,
+      expiryDate: { $gt: new Date() }
+
+    });
+
+    if (purchase) {
+
+      return res.json({
+        access: true,
+        hasPurchasedBefore: true
+      });
+
+    }
+
+    const subscription = await Subscription.findOne({
+
+      userId: req.params.userId,
+
+      status: "active",
+
+      expiryDate: {
+        $gt: new Date()
+      }
+
+    });
+
+    if (subscription) {
+
+      return res.json({
+        access: true,
+        hasPurchasedBefore: !!hasPurchasedBefore
+      });
+
+    }
+
+    res.json({
+      access: false,
+      hasPurchasedBefore: !!hasPurchasedBefore
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      access: false
+    });
+
+  }
+
+});
+
+//uptime robot
+
+// 🔥 KEEP ALIVE API (for Uptime Robot)
+app.get('/ping', (req, res) => {
+  res.status(200).send("Server alive 🚀");
+});
+
+//uptime robot
+
+app.get('/book/:userId/:bookId', requireAuth, async (req, res) => {
+
+  try {
+
+    const { userId, bookId } = req.params;
+
+    if (String(req.user.id) !== String(userId)) {
+      return res.status(403).json({ message: 'You can only read your own books' });
+    }
+
+    // =====================================
+    // CHECK PURCHASE
+    // =====================================
+
+    const purchase = await Purchase.findOne({
+
+      userId,
+
+      bookId,
+      isActive: true,
+      expiryDate: { $gt: new Date() }
+
+    });
+
+    let hasAccess = !!purchase;
+
+
+    // =====================================
+    // IF PURCHASE NOT FOUND
+    // CHECK SUBSCRIPTION
+    // =====================================
+
+    if (!hasAccess) {
+
+      const subscription = await Subscription.findOne({
+
+        userId,
+
+        status: "active",
+
+        expiryDate: {
+
+          $gt: new Date()
+
+        }
+
+      });
+
+      if (subscription) {
+
+        hasAccess = true;
+
+      }
+
+    }
+
+
+    if (!hasAccess) {
+
+      return res
+        .status(403)
+        .send("Access Denied ❌");
+
+    }
+
+
+    // =====================================
+    // CHECK DYNAMIC BOOK FIRST
+    // =====================================
+
+    // =====================================
+    // CHECK DYNAMIC BOOK FIRST
+    // =====================================
+
+    if (mongoose.Types.ObjectId.isValid(bookId)) {
+
+      const dynamicBook = await DynamicBook.findById(bookId);
+
+      if (dynamicBook) {
+
+        return res.redirect(dynamicBook.pdfUrl);
+
+      }
+
+    }
+
+    // =====================================
+    // OTHERWISE LOAD HARDCODED PDF
+    // =====================================
+
+    const filePath = path.join(
+
+      __dirname,
+
+      "books",
+
+      `${bookId}.pdf`
+
+    );
+
+    res.setHeader(
+
+      "Content-Type",
+
+      "application/pdf"
+
+    );
+
+    res.setHeader(
+
+      "Content-Disposition",
+
+      "inline"
+
+    );
+
+    res.sendFile(filePath);
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).send("Server Error");
+
+  }
+
+});
+
+// 📚 BOOK LIST
+// const books = [
+//   { id: "1", name: "Complete Fat Loss Guide" },
+//   { id: "2", name: "1500-Calories Diet Plan" },
+//   { id: "3", name: "Habits That Change Your Life" },
+//   { id: "4", name: "Beginner Guide" },
+//   { id: "5", name: "Diabetes Control" },
+//   { id: "6", name: "PCOD / PCOS Guide" }
+// ];
+
+// const books = [
+
+//   {
+//     id: "1",
+//     name: "Complete Fat Loss Guide",
+//     price: 49,
+//     image: "assets/images/fatloss-book.jpeg"
+//   },
+
+//   {
+//     id: "2",
+//     name: "1500-Calories Diet Plan",
+//     price: 49,
+//     image: "assets/images/1500-cal-diet.jpg"
+//   },
+
+//   {
+//     id: "3",
+//     name: "Habits That Change Your Life",
+//     price: 49,
+//     image: "assets/images/habits.jpg"
+//   },
+
+//   {
+//     id: "4",
+//     name: "Beginner Guide",
+//     price: 49,
+//     image: "assets/images/beginner-guide.jpg"
+//   },
+
+//   {
+//     id: "5",
+//     name: "Diabetes Control",
+//     price: 49,
+//     image: "assets/images/diabetes-control.jpg"
+//   },
+
+//   {
+//     id: "6",
+//     name: "PCOD / PCOS Guide",
+//     price: 49,
+//     image: "assets/images/pcod.jpg"
+//   },
+//   {
+//     id: "7",
+//     name: "Admin Testing Book",
+//     price: 1,
+//     image: "assets/images/admin-testing-book.jpg"
+//   }
+
+// ];
+
+// 📚 GET BOOKS
+app.get('/admin/books', verifyAdmin, (req, res) => {
+  res.json(books);
+});
+
+//grant access api for admin panel
+app.post('/admin/grant-access', verifyAdmin, async (req, res) => {
+  try {
+    const { userId, bookId } = req.body;
+
+    if (!userId || !bookId) {
+      return res.status(400).json({ message: "Missing data" });
+    }
+
+    const startDate = new Date();
+    const expiryDate = new Date(startDate);
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+    const accessData = {
+      userId,
+      bookId,
+      paymentId: "admin_manual",
+      orderId: "admin_manual",
+      amount: 0,
+      accessType: 'admin',
+      startDate,
+      expiryDate,
+      isActive: true
+    };
+    await Purchase.findOneAndUpdate(
+      { userId, bookId },
+      { $set: accessData },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ message: "Access granted ✅" });
+
+  } catch {
+    res.status(500).json({ message: "Error ❌" });
+  }
+});
+//grant access api for admin panel end
+
+// notification bot code start
+
+async function sendTelegram(msg) {
+  try {
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      chat_id: CHAT_ID,
+      text: msg
+    });
+  } catch (err) {
+    console.log("Telegram error");
+  }
+}
+
+
+// notification bot code end
+
+// ================= MY BOOKS =================
+
+app.get('/my-books/:userId', requireAuth, async (req, res) => {
+
+  try {
+
+    const { userId } = req.params;
+
+    if (String(req.user.id) !== String(userId)) {
+      return res.status(403).json({ message: 'You can only view your own books' });
+    }
+
+    const subscription = await Subscription.findOne({
+      userId,
+      status: "active",
+      expiryDate: { $gt: new Date() }
+    });
+
+    if (subscription) {
+
+      const allBooks = await DynamicBook.find()
+        .sort({ createdAt: -1 });
+
+      return res.json(allBooks);
+
+    }
+
+    // Purchase books
+    const purchases = await Purchase.find({
+      userId,
+      isActive: true,
+      expiryDate: { $gt: new Date() }
+    });
+
+    const purchasedIds = purchases.map(p => p.bookId);
+
+    const purchasedBooks = await DynamicBook.find({
+      _id: { $in: purchasedIds }
+    }).sort({ createdAt: -1 });
+
+    return res.json(purchasedBooks);
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      message: "Server Error"
+    });
+
+  }
+
+});
+
+// payment verification data start
+
+// ================= PAYMENTS =================
+
+app.get('/payments/:userId', requireAuth, async (req, res) => {
+
+  try {
+
+    if (String(req.user.id) !== String(req.params.userId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only view your own payment history'
+      });
+    }
+
+    const purchases = await Purchase.find({
+      userId: req.params.userId
+    });
+
+    const dynamicBooks = await DynamicBook.find();
+
+    const paymentData = purchases.map((p) => {
+
+      // Hardcoded Book
+      let book = books.find(
+        b => b.id?.toString() === p.bookId?.toString()
+      );
+
+      // Dynamic Book
+      if (!book) {
+
+        book = dynamicBooks.find(
+          b => b._id?.toString() === p.bookId?.toString()
+        );
+
+      }
+
+      return {
+
+        paymentId: p.paymentId,
+        orderId: p.orderId,
+        type: 'book',
+        createdAt: p.createdAt,
+        startDate: p.startDate || p.createdAt,
+        expiryDate: p.expiryDate,
+        isActive: p.isActive !== false && p.expiryDate > new Date(),
+
+        bookTitle:
+          book?.title ||
+          book?.name ||
+          "Unknown Book",
+
+        amount: Number(p.amount || 0)
+
+      };
+
+    });
+
+    res.json(paymentData);
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      message: "Error loading payments"
+    });
+
+  }
+
+});
+
+//payment verification data end 
+
+//free book code start
+
+app.post('/verify-free-book', requireAuth, async (req, res) => {
+
+  try {
+
+    const { userId, bookId } = req.body;
+
+    if (String(req.user.id) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Invalid user' });
+    }
+
+    const alreadyPurchased = await Purchase.findOne({
+
+      userId,
+
+      bookId
+
+    });
+
+    if (alreadyPurchased && alreadyPurchased.isActive && alreadyPurchased.expiryDate > new Date()) {
+
+      return res.json({
+
+        success: true
+
+      });
+
+    }
+
+    const startDate = new Date();
+    const expiryDate = new Date(startDate);
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+    await Purchase.create({
+
+      userId,
+
+      bookId,
+
+      amount: 0,
+
+      paymentId: "FREE-COUPON",
+
+      orderId: "FREE-COUPON",
+
+      startDate,
+      expiryDate,
+      isActive: true
+
+    });
+
+    res.json({
+
+      success: true
+
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      message: err.message
+
+    });
+
+  }
+
+});
+
+//free book code end 
+
+
+// ================= PROFILE DATA =================
+
+app.get('/profile-data/:userId', async (req, res) => {
+
+  try {
+
+    const user = await User.findById(req.params.userId);
+
+    if (!user) {
+
+      return res.status(404).json({
+        message: 'User not found'
+      });
+
+    }
+
+    const purchases = await Purchase.find({
+      userId: req.params.userId
+    });
+
+    // total payment calculate
+    const totalSpent = purchases.length * 49;
+
+    res.json({
+
+      user,
+
+      purchases,
+
+      totalSpent
+
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      message: 'Error loading profile'
+    });
+
+  }
+
+});
+
+// admin stats code start
+
+// ================= ADMIN STATS =================
+
+app.get('/admin/stats', verifyAdmin, async (req, res) => {
+
+  try {
+
+    // 👥 TOTAL USERS
+    const totalUsers =
+      await User.countDocuments();
+
+    // 💳 TOTAL PURCHASES
+    const totalPurchases =
+      await Purchase.countDocuments();
+
+    // 📚 TOTAL BOOKS
+    const totalBooks =
+      books.length;
+
+    // 💰 TOTAL REVENUE
+    const totalRevenue =
+      totalPurchases * 49;
+
+    // 🔥 RECENT PURCHASES
+    const recentPurchases =
+      await Purchase.find()
+        .sort({ _id: -1 })
+        .limit(5);
+
+    const recentData =
+      await Promise.all(
+
+        recentPurchases.map(async (p) => {
+
+          const user =
+            await User.findById(p.userId);
+
+          const book =
+            books.find(
+              b =>
+                b.id.toString()
+                ===
+                p.bookId.toString()
+            );
+
+          return {
+
+            userName:
+              user
+                ? user.name
+                : 'Unknown',
+
+            phone:
+              user
+                ? user.phone
+                : 'N/A',
+
+            bookName:
+              book
+                ? book.name
+                : 'Unknown Book',
+
+            paymentId:
+              p.paymentId
+
+          };
+
+        })
+
+      );
+
+    res.json({
+
+      totalUsers,
+
+      totalPurchases,
+
+      totalBooks,
+
+      totalRevenue,
+
+      recentPurchases:
+        recentData
+
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+
+      message:
+        'Stats loading error'
+
+    });
+
+  }
+
+});
+
+//admin stats code end
+
+// multer code start
+
+// ==========================
+// 🔥 MULTER STORAGE
+// ==========================
+
+// const storage = multer.diskStorage({
+
+//   destination: function (req, file, cb) {
+
+//     if (file.fieldname === 'image') {
+
+//       cb(null, 'uploads/images');
+
+//     } else {
+
+//       cb(null, 'uploads/pdfs');
+
+//     }
+
+//   },
+
+//   filename: function (req, file, cb) {
+
+//     cb(
+//       null,
+//       Date.now() + '-' + file.originalname
+//     );
+
+//   }
+
+// });
+
+// const upload = multer({ storage });
+
+
+// // ==========================
+// // 🔥 BOOK MODEL
+// // ==========================
+
+// const BookSchema = new mongoose.Schema({
+
+//   name: String,
+//   price: Number,
+//   category: String,
+
+//   image: String,
+//   pdf: String,
+
+//   createdAt: {
+//     type: Date,
+//     default: Date.now
+//   }
+
+// });
+
+// const Book = mongoose.model('Book', BookSchema);
+
+
+// ==========================
+// 🔥 UPLOAD BOOK
+// ==========================
+
+app.post(
+  '/admin/upload-book',
+
+  upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'pdf', maxCount: 1 }
+  ]),
+
+  async (req, res) => {
+
+    try {
+
+      const {
+        name,
+        price,
+        category
+      } = req.body;
+
+      const image =
+        req.files['image'][0].filename;
+
+      const pdf =
+        req.files['pdf'][0].filename;
+
+      const book = new Book({
+
+        name,
+        price,
+        category,
+
+        image,
+        pdf
+
+      });
+
+      await book.save();
+
+      res.json({
+        success: true,
+        message: 'Book Uploaded ✅'
+      });
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        message: 'Upload Error'
+      });
+
+    }
+
+  }
+);
+
+
+// ==========================
+// 🔥 GET ALL BOOKS
+// ==========================
+
+app.get('/admin/books-full', async (req, res) => {
+
+  const books = await Book.find();
+
+  res.json(books);
+
+});
+
+// ==========================
+// UPLOAD IMAGE (Logo/Banner)
+// ==========================
+
+app.post(
+
+  "/admin/upload-image",
+
+  upload.single("image"),
+
+  (req, res) => {
+
+    try {
+
+      if (!req.file) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message: "No Image Uploaded"
+
+        });
+
+      }
+
+      res.json({
+
+        success: true,
+
+        image: req.file.path
+
+      });
+
+    }
+
+    catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+
+        success: false,
+
+        message: err.message
+
+      });
+
+    }
+
+  }
+
+);
+
+
+// ==========================
+// 🔥 DASHBOARD ANALYTICS
+// ==========================
+
+app.get('/admin/dashboard-stats', async (req, res) => {
+
+  try {
+
+    const purchases =
+      await Purchase.find();
+
+    const users =
+      await User.find();
+
+    const totalRevenue =
+      purchases.reduce(
+        (sum, p) => sum + Number(p.amount || 0),
+        0
+      );
+
+    // 🔥 TODAY
+
+    const today = new Date();
+
+    today.setHours(0, 0, 0, 0);
+
+    const todayRevenue =
+      purchases
+        .filter(p =>
+          new Date(p.createdAt) >= today
+        )
+        .reduce(
+          (sum, p) =>
+            sum + Number(p.amount || 0),
+          0
+        );
+
+    // 🔥 WEEK
+
+    const week = new Date();
+
+    week.setDate(
+      week.getDate() - 7
+    );
+
+    const weeklyRevenue =
+      purchases
+        .filter(p =>
+          new Date(p.createdAt) >= week
+        )
+        .reduce(
+          (sum, p) =>
+            sum + Number(p.amount || 0),
+          0
+        );
+
+    // 🔥 MONTH
+
+    const month = new Date();
+
+    month.setMonth(
+      month.getMonth() - 1
+    );
+
+    const monthlyRevenue =
+      purchases
+        .filter(p =>
+          new Date(p.createdAt) >= month
+        )
+        .reduce(
+          (sum, p) =>
+            sum + Number(p.amount || 0),
+          0
+        );
+
+    // 🔥 TOP SELLING
+
+    const bookCounts = {};
+
+    purchases.forEach(p => {
+
+      if (!bookCounts[p.bookId]) {
+
+        bookCounts[p.bookId] = 0;
+
+      }
+
+      bookCounts[p.bookId]++;
+
+    });
+
+    let topBook = '';
+
+    let topSales = 0;
+
+    for (let key in bookCounts) {
+
+      if (bookCounts[key] > topSales) {
+
+        topSales = bookCounts[key];
+
+        topBook = key;
+
+      }
+
+    }
+
+    // 🔥 BOOK-WISE REVENUE
+
+    const revenueByBook = {};
+
+    purchases.forEach(p => {
+
+      if (!revenueByBook[p.bookTitle]) {
+
+        revenueByBook[p.bookTitle] = 0;
+
+      }
+
+      revenueByBook[p.bookTitle] +=
+        Number(p.amount || 0);
+
+    });
+
+    res.json({
+
+      totalUsers: users.length,
+
+      totalPurchases:
+        purchases.length,
+
+      totalRevenue,
+
+      todayRevenue,
+
+      weeklyRevenue,
+
+      monthlyRevenue,
+
+      topBook,
+
+      topSales,
+
+      revenueByBook
+
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      message: 'Stats Error'
+    });
+
+  }
+
+});
+
+// multer code end
+
+
+// admin total revenue weekly revenue monthly revenue code start
+
+// 🔥 ADMIN ANALYTICS API
+
+app.get('/admin/dashboard-stats', async (req, res) => {
+
+  try {
+
+    const usersCount = await User.countDocuments();
+
+    const purchases = await Purchase.find();
+
+    let totalRevenue = 0;
+    let todayRevenue = 0;
+    let weeklyRevenue = 0;
+    let monthlyRevenue = 0;
+
+    const now = new Date();
+
+    purchases.forEach((p) => {
+
+      const amount = Number(p.amount || 0);
+
+      totalRevenue += amount;
+
+      const created = new Date(p.createdAt || Date.now());
+
+      // TODAY
+      if (
+        created.toDateString() === now.toDateString()
+      ) {
+        todayRevenue += amount;
+      }
+
+      // WEEK
+      const diffDays =
+        (now - created) / (1000 * 60 * 60 * 24);
+
+      if (diffDays <= 7) {
+        weeklyRevenue += amount;
+      }
+
+      // MONTH
+      if (
+        created.getMonth() === now.getMonth() &&
+        created.getFullYear() === now.getFullYear()
+      ) {
+        monthlyRevenue += amount;
+      }
+
+    });
+
+    // 🔥 TOP SELLING BOOK
+
+    const salesMap = {};
+
+    purchases.forEach((p) => {
+
+      if (!salesMap[p.bookId]) {
+
+        salesMap[p.bookId] = 0;
+
+      }
+
+      salesMap[p.bookId]++;
+
+    });
+
+    let topBookId = '';
+    let topSellingCount = 0;
+
+    for (const id in salesMap) {
+
+      if (salesMap[id] > topSellingCount) {
+
+        topSellingCount = salesMap[id];
+
+        topBookId = id;
+
+      }
+
+    }
+
+    res.json({
+
+      usersCount,
+
+      purchasesCount: purchases.length,
+
+      totalRevenue,
+
+      todayRevenue,
+
+      weeklyRevenue,
+
+      monthlyRevenue,
+
+      topBookId,
+
+      topSellingCount
+
+    });
+
+  }
+
+  catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      message: 'Server Error'
+    });
+
+  }
+
+});
+
+// admin total revenue weekly revenue monthly revenue code end
+
+// testimonial code start
+
+// 🔥 SAVE TESTIMONIAL
+app.post('/add-testimonial', async (req, res) => {
+
+  try {
+
+    const testimonial = new Testimonial({
+
+      name: req.body.name,
+
+      rating: req.body.rating,
+
+      message: req.body.message
+
+    });
+
+    await testimonial.save();
+
+    res.json({
+      success: true,
+      message: 'Testimonial Added'
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// 🔥 GET TESTIMONIALS
+app.get('/testimonials', async (req, res) => {
+
+  try {
+
+    const testimonials =
+      await Testimonial.find()
+        .sort({ createdAt: -1 });
+
+    res.json(testimonials);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// 🔥 DELETE TESTIMONIAL
+app.delete('/testimonial/:id', async (req, res) => {
+
+  try {
+
+    await Testimonial.findByIdAndDelete(
+      req.params.id
+    );
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// 🔥 TESTIMONIAL SCHEMA
+const testimonialSchema = new mongoose.Schema({
+
+  name: String,
+
+  message: String,
+
+  rating: Number
+
+}, {
+  timestamps: true
+});
+
+// const Testimonial =
+//   mongoose.model('Testimonial', testimonialSchema);
+
+
+// 🔥 SAVE TESTIMONIAL
+app.post('/testimonial', requireAuth, upload.single('image'), async (req, res) => {
+
+  try {
+
+    const name = String(req.body.name || '').trim();
+    const message = String(req.body.message || '').trim();
+    const rating = Number(req.body.rating);
+
+    if (!name || !message || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ success: false, message: 'Name, review, and valid rating are required' });
+    }
+
+    const testimonial = new Testimonial({
+      name,
+      message,
+      rating,
+      userId: req.user.id,
+      imageUrl: req.file?.path || ''
+    });
+
+    await testimonial.save();
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// 🔥 GET TESTIMONIALS
+app.get('/testimonials', async (req, res) => {
+
+  try {
+
+    const data = await Testimonial
+      .find()
+      .sort({ createdAt: -1 });
+
+    res.json(data);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// 🔥 ADMIN TESTIMONIALS
+app.get('/admin/testimonials', verifyAdmin, async (req, res) => {
+
+  try {
+
+    const data = await Testimonial
+      .find()
+      .sort({ createdAt: -1 });
+
+    res.json(data);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// 🔥 admin DELETE TESTIMONIAL
+app.delete('/admin/testimonial/:id', verifyAdmin, async (req, res) => {
+
+  try {
+
+    await Testimonial.findByIdAndDelete(
+      req.params.id
+    );
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+});
+
+// testimonial code end
+
+//email sender code start
+
+cron.schedule('0 9 * * *', async () => {
+
+  console.log("Checking Subscription Reminder...");
+
+  const subscriptions = await Subscription.find({
+
+    status: "active"
+
+  });
+
+  const today = new Date();
+
+  for (const sub of subscriptions) {
+
+    const user = await User.findById(sub.userId);
+
+    if (!user) continue;
+
+    const diffTime =
+
+      sub.expiryDate.getTime() -
+
+      today.getTime();
+
+    const daysLeft =
+
+      Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // 7 Days
+
+    if (daysLeft == 7 && !sub.sevenDayReminder) {
+
+      await sendReminderMail(
+
+        user.email,
+
+        user.name,
+
+        7
+
+      );
+
+      sub.sevenDayReminder = true;
+
+      await sub.save();
+
+    }
+
+    // 3 Days
+
+    if (daysLeft == 3 && !sub.threeDayReminder) {
+
+      await sendReminderMail(
+
+        user.email,
+
+        user.name,
+
+        3
+
+      );
+
+      sub.threeDayReminder = true;
+
+      await sub.save();
+
+    }
+
+    // 1 Day
+
+    if (daysLeft == 1 && !sub.oneDayReminder) {
+
+      await sendReminderMail(
+
+        user.email,
+
+        user.name,
+
+        1
+
+      );
+
+      sub.oneDayReminder = true;
+
+      await sub.save();
+
+    }
+
+    // Expired
+
+    if (daysLeft <= 0 && !sub.expiredReminder) {
+
+      await sendExpiredMail(
+
+        user.email,
+
+        user.name
+
+      );
+
+      sub.status = "expired";
+
+      sub.expiredReminder = true;
+
+      await sub.save();
+
+    }
+
+  }
+
+});
+
+async function sendReminderMail(
+
+  email,
+
+  name,
+
+  days
+
+) {
+
+  await transporter.sendMail({
+
+    from: process.env.EMAIL_USER,
+
+    to: email,
+
+    subject:
+
+      "SS Builds Subscription Reminder",
+
+    html: `
+
+<h2>Hello ${name}</h2>
+
+<p>
+
+Your Premium Subscription
+
+will expire in
+
+<b>${days} day(s)</b>
+
+</p>
+
+<p>
+
+Renew now to continue
+
+reading Premium Books.
+
+</p>
+
+`
+
+  });
+
+}
+
+async function sendExpiredMail(
+
+  email,
+
+  name
+
+) {
+
+  await transporter.sendMail({
+
+    from: process.env.EMAIL_USER,
+
+    to: email,
+
+    subject:
+
+      "Subscription Expired",
+
+    html: `
+
+<h2>Hello ${name}</h2>
+
+<p>
+
+Your Premium Subscription
+
+has expired.
+
+</p>
+
+<p>
+
+Renew today.
+
+</p>
+
+`
+
+  });
+
+}
+
+//email sender code end
+
+// ================= START =================
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log("Server running 🚀"));

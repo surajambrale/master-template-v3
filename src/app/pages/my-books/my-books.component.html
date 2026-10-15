@@ -1,0 +1,138 @@
+<div class="my-books-page">
+
+  <h1>📚 My Books</h1>
+
+  <div class="library-summary">
+    <div><strong>{{ purchasedBooks.length }}</strong><span>Books</span></div>
+    <div><strong>{{ purchasedFolders.length }}</strong><span>Folders</span></div>
+  </div>
+
+  <section class="owned-section" *ngIf="purchasedFolders.length > 0">
+    <h2>📂 Purchased Folders</h2>
+    <div class="my-books-folder-list">
+    <div class="folder-box" *ngFor="let access of purchasedFolders" (click)="openFolder(access)">
+      <div class="folder-box-icon">📁</div>
+      <div class="folder-info">
+        <h3>{{ access.folder.name }}</h3>
+        <p>{{ access.folder.description || 'Learning resources' }}</p>
+        <small>{{ access.accessType === 'subscription' ? 'Premium subscription access' : 'Individual purchase' }}</small>
+      </div>
+      <span class="folder-arrow">Open →</span>
+    </div>
+    </div>
+  </section>
+
+  <section class="owned-section" *ngIf="purchasedBooks.length > 0">
+    <h2>📚 Purchased Books</h2>
+  </section>
+
+  <div class="my-books-list">
+  <div
+    class="book-box"
+    *ngFor="let book of purchasedBooks"
+  >
+
+    <img [src]="book.coverImage || book.image" />
+
+    <div class="book-info">
+
+      <h3>{{ book.name }}</h3>
+
+      <p>{{ book.author }}</p>
+
+      <!-- 🔥 PROGRESS BAR START -->
+
+      <!-- <div class="progress-section">
+
+        <div class="progress-top">
+
+          <span>Reading Progress</span>
+
+          <span>{{ book.progress || 0 }}%</span>
+
+        </div>
+
+        <div class="progress-bar">
+
+          <div
+            class="progress-fill"
+            [style.width.%]="book.progress || 0"
+          ></div>
+
+        </div>
+
+      </div> -->
+
+      <!-- 🔥 PROGRESS BAR END -->
+
+      <button
+        class="buy"
+        (click)="readBook(book)"
+      >
+
+        {{
+          book.progress > 0
+          ? 'Continue Reading'
+          : 'Read Book'
+        }}
+
+      </button>
+
+    </div>
+
+  </div>
+  </div>
+
+  <div
+    class="empty"
+    *ngIf="purchasedBooks.length === 0 && purchasedFolders.length === 0"
+  >
+
+    No Purchased Books Found 📚
+
+  </div>
+
+</div>
+
+<!-- navbar start -->
+<div class="bottom-navbar">
+
+  <div
+    class="nav-item"
+    routerLink="/"
+    routerLinkActive="active"
+    [routerLinkActiveOptions]="{ exact: true }"
+  >
+    <span>🏠</span>
+    <p>Home</p>
+  </div>
+
+  <div
+    class="nav-item"
+    routerLink="/explore"
+    routerLinkActive="active"
+  >
+    <span>🔍</span>
+    <p>Explore</p>
+  </div>
+
+  <div
+    class="nav-item"
+    routerLink="/my-books"
+    routerLinkActive="active"
+  >
+    <span>📚</span>
+    <p>My Books</p>
+  </div>
+
+  <div
+    class="nav-item"
+    routerLink="/profile"
+    routerLinkActive="active"
+  >
+    <span>👤</span>
+    <p>Profile</p>
+  </div>
+
+</div>
+<!-- navbar end -->

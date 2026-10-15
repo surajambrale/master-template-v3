@@ -1,0 +1,475 @@
+.explore-page {
+
+  min-height: 100vh;
+
+  width: 100%;
+  max-width: none;
+
+  margin: 0;
+
+  background: #000;
+
+  color: white;
+
+  padding: 28px clamp(24px, 5vw, 72px);
+
+  padding-bottom: 100px;
+}
+
+/* TITLE */
+
+.explore-page h1 { margin: 0 0 25px; }
+
+/* SEARCH */
+
+/* 🔥 SEARCH SECTION */
+
+.search-box {
+
+  width: 100%;
+
+  padding: 0 15px;
+
+  margin-bottom: 20px;
+
+  box-sizing: border-box;
+}
+
+.search-box input {
+
+  width: 100%;
+
+  height: 52px;
+
+  padding: 0 18px;
+
+  border-radius: 14px;
+
+  border: 1px solid #333;
+
+  background: #111;
+
+  color: white;
+
+  font-size: 1rem;
+
+  outline: none;
+
+  box-sizing: border-box;
+
+  transition: 0.3s;
+}
+
+.search-box input:focus {
+
+  border-color: gold;
+
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.search-box input::placeholder {
+
+  color: #777;
+}
+
+.folder-section {
+  margin: 28px 0;
+}
+
+.explore-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 14px;
+}
+
+.explore-section-heading h2 { margin: 0; font-size: 1.2rem; }
+.explore-section-heading span { color: #aaa; font-size: .8rem; white-space: nowrap; }
+
+.explore-folder-list { display: grid; gap: 12px; }
+
+.folder-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  background: #111;
+  cursor: pointer;
+}
+
+.folder-box-icon { font-size: 2rem; }
+.folder-info { min-width: 0; flex: 1; }
+.folder-info h3, .folder-info p { margin: 0; overflow-wrap: anywhere; }
+.folder-info p { margin-top: 4px; color: #aaa; font-size: .8rem; }
+.folder-arrow { color: gold; white-space: nowrap; }
+
+.explore-book-list {
+  display: grid;
+  gap: 12px;
+}
+
+.section-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.section-header h2 {
+  margin: 5px 0 0;
+}
+
+.section-header > span,
+.section-label {
+  color: #aaa;
+  font-size: .75rem;
+}
+
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.folder-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #292929;
+  border-radius: 14px;
+  background: #111;
+  cursor: pointer;
+}
+
+.folder-card h3,
+.folder-card p {
+  margin: 0;
+}
+
+.folder-card p {
+  margin-top: 5px;
+  color: #999;
+  font-size: .8rem;
+  overflow-wrap: anywhere;
+}
+
+.folder-icon {
+  font-size: 1.7rem;
+}
+
+.folder-link {
+  color: gold;
+  white-space: nowrap;
+}
+
+/* GRID */
+
+.book-grid {
+  display: grid;
+  gap: 12px;
+}
+
+/* CARD */
+
+.book-card {
+
+  background: #111;
+
+  border-radius: 18px;
+
+  overflow: hidden;
+
+  cursor: pointer;
+
+  border: 1px solid #222;
+
+  transition: 0.3s;
+}
+
+.book-box {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+  padding: 15px;
+  margin-bottom: 12px;
+  border: 1px solid #222;
+  border-radius: 18px;
+  background: #111;
+  cursor: pointer;
+}
+
+.book-box > img {
+  width: 90px;
+  height: 130px;
+  flex: 0 0 90px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.book-box .book-info { flex: 1; min-width: 0; }
+.book-box .book-info h3 { margin: 0 0 10px; overflow-wrap: anywhere; }
+.book-box .book-info p { margin: 0 0 15px; color: #aaa; }
+.book-box button { padding: 11px 18px; border: 0; border-radius: 10px; background: gold; font-weight: 700; cursor: pointer; }
+
+.book-card:hover {
+
+  transform: translateY(-8px);
+
+  border-color: gold;
+
+  box-shadow: 0 8px 20px rgba(255,215,0,0.15);
+}
+
+/* IMAGE */
+
+.book-card img {
+
+  width: 100%;
+
+  height: 300px;
+
+  object-fit: cover;
+
+  display: block;
+}
+
+/* INFO */
+
+.book-info {
+
+  padding: 16px;
+}
+
+.book-info h3 {
+
+  color: white;
+
+  font-size: 1rem;
+
+  margin-bottom: 8px;
+}
+
+.book-info p {
+
+  color: #aaa;
+
+  font-size: 0.9rem;
+}
+
+/* NOT FOUND */
+
+.not-found {
+
+  text-align: center;
+
+  margin-top: 80px;
+}
+
+.not-found h2 {
+
+  font-size: 2rem;
+
+  color: #ff5b5b;
+}
+
+.not-found p {
+
+  margin-top: 15px;
+
+  color: #bbb;
+
+  line-height: 1.6;
+}
+
+.not-found button {
+
+  margin-top: 25px;
+
+  padding: 14px 30px;
+
+  border: none;
+
+  border-radius: 12px;
+
+  background: linear-gradient(
+    135deg,
+    #25D366,
+    #128C7E
+  );
+
+  color: white;
+
+  font-weight: bold;
+
+  cursor: pointer;
+
+  transition: 0.3s;
+}
+
+.not-found button:hover {
+
+  transform: scale(1.05);
+}
+
+/* MOBILE */
+
+@media(max-width:768px){
+
+  .explore-page {
+    padding: 14px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .book-box { padding: 12px; border-radius: 14px; }
+  .book-box > img { width: 72px; height: 104px; flex-basis: 72px; }
+  .book-box button { width: 100%; padding: 11px 8px; }
+  .folder-box { padding: 12px; }
+  .folder-arrow { font-size: .8rem; }
+
+}
+
+@media (min-width: 769px) {
+  .explore-folder-list,
+  .explore-book-list {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
+
+
+/* =========================================
+🔥 BOTTOM NAVBAR start
+========================================= */
+
+/* 🔥 BOTTOM NAVBAR */
+
+.bottom-navbar {
+
+  position: fixed;
+
+  bottom: 0;
+
+  left: 0;
+
+  width: 100%;
+
+  background: #0d0d0d;
+
+  display: flex;
+
+  justify-content: space-around;
+
+  align-items: center;
+
+  padding: 12px 0;
+
+  border-top: 1px solid #222;
+
+  z-index: 99999;
+
+  backdrop-filter: blur(10px);
+}
+
+/* 🔥 NAV ITEM */
+
+.nav-item {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 4px;
+
+  color: #888;
+
+  cursor: pointer;
+
+  transition: 0.3s;
+
+  font-size: 0.8rem;
+
+  width: 25%;
+}
+
+/* 🔥 ICON */
+
+.nav-item span {
+
+  font-size: 1.4rem;
+
+  transition: 0.3s;
+}
+
+/* 🔥 TEXT */
+
+.nav-item p {
+
+  margin: 0;
+
+  transition: 0.3s;
+}
+
+/* Match the book-list navigation on every viewport. */
+.bottom-navbar { height: 68px; padding: 0; box-sizing: border-box; background: rgba(10, 10, 10, .94); border-top: 1px solid #242424; backdrop-filter: blur(15px); }
+.bottom-navbar .nav-item { height: 100%; gap: 3px; color: #666; font-size: 9px; }
+.bottom-navbar .nav-item span { font-size: 19px; }
+.bottom-navbar .nav-item p { font-size: 9px; font-weight: 600; }
+.bottom-navbar .nav-item.active, .bottom-navbar .nav-item.active span, .bottom-navbar .nav-item.active p { color: #f5c542 !important; }
+.bottom-navbar .nav-item.active span { transform: translateY(-1px); }
+
+@media (max-width: 600px) {
+  .bottom-navbar { height: 62px; }
+  .bottom-navbar .nav-item span { font-size: 17px; }
+  .bottom-navbar .nav-item p { font-size: 8px; }
+}
+
+/* 🔥 HOVER */
+
+.nav-item:hover {
+
+  color: white;
+
+  transform: translateY(-2px);
+}
+
+/* 🔥 ACTIVE TAB */
+
+.active {
+
+  color: gold !important;
+}
+
+/* 🔥 ACTIVE ICON */
+
+.active span {
+
+  color: gold !important;
+
+  transform: scale(1.1);
+}
+
+/* 🔥 ACTIVE TEXT */
+
+.active p {
+
+  color: gold !important;
+
+  font-weight: 600;
+}
+
+/* =========================================
+🔥 BOTTOM NAVBAR end
+========================================= */
